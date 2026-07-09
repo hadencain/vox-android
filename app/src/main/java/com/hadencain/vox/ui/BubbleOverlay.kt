@@ -68,6 +68,7 @@ class BubbleOverlay(
     }
 
     fun hide() {
+        handler.removeCallbacksAndMessages(null)
         if (!shown) return
         wm.removeView(bubble); wm.removeView(caption)
         shown = false
