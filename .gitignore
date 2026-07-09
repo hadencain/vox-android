@@ -1,0 +1,13 @@
+session_log.md
+docs/superpowers/
+.superpowers/
+.claude/
+scratch/*
+!scratch/.gitkeep
+.gradle/
+build/
+app/build/
+local.properties
+*.bin
+*.task
+.cxx/
