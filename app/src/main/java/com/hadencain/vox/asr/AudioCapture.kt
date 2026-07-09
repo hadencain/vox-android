@@ -44,6 +44,10 @@ class AudioCapture(
         record = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,
             sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_FLOAT,
             maxOf(minBuf, sampleRate))  // >= 1s of headroom
+        if (record?.state != AudioRecord.STATE_INITIALIZED) {
+            record?.release(); record = null
+            throw IllegalStateException("AudioRecord failed to initialize (mic busy or unavailable)")
+        }
         val detector = SilenceDetector(silenceTimeoutMs, sampleRate)
         running = true
         record!!.startRecording()
@@ -62,7 +66,7 @@ class AudioCapture(
 
     fun stop(): FloatArray {
         running = false
-        thread?.join(500); thread = null
+        if (Thread.currentThread() !== thread) thread?.join(500); thread = null
         record?.let { it.stop(); it.release() }; record = null
         return snapshot()
     }
