@@ -15,12 +15,31 @@ android {
         versionCode 1
         versionName "0.1.0"
         ndk { abiFilters "arm64-v8a" }
+
+        externalNativeBuild {
+            cmake {
+                cFlags "-O3"
+                cppFlags "-std=c++17 -O3"
+                // Force Release for the native lib even in debug app builds —
+                // AGP defaults CMAKE_BUILD_TYPE=Debug, and ggml at -O0 is ~60x
+                // slower (measured: 253s vs seconds infer on the 11s jfk.wav).
+                arguments "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-33",
+                          "-DCMAKE_BUILD_TYPE=Release"
+            }
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = '17' }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
 }
 
 dependencies {
