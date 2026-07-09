@@ -46,6 +46,7 @@ class VoxAccessibilityService : AccessibilityService() {
         val existing = node.text?.toString() ?: ""
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
+        if (start > end) { val t = start; start = end; end = t }
         if (start !in 0..existing.length) start = existing.length
         if (end !in start..existing.length) end = start
         val combined = existing.substring(0, start) + text + existing.substring(end)
@@ -70,18 +71,23 @@ class VoxAccessibilityService : AccessibilityService() {
         val cm = getSystemService(ClipboardManager::class.java)
         val saved = cm.primaryClip
         cm.setPrimaryClip(ClipData.newPlainText("vox", text))
-        val ok = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-        if (saved != null) cm.setPrimaryClip(saved)
-        return ok
+        return try {
+            node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        } finally {
+            if (saved != null) cm.setPrimaryClip(saved)
+            else cm.clearPrimaryClip()
+        }
     }
 
     /** Read the focused field's selection (AI-edit). start==end -> no selection. */
     fun readSelection(): SelectionInfo? {
         val node = focusedEditable() ?: return null
-        if (node.isPassword || !node.isEditable) return null
+        if (node.isPassword) return null
+        if (!node.isEditable) return null
         val existing = node.text?.toString() ?: ""
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
+        if (start > end) { val t = start; start = end; end = t }
         if (start !in 0..existing.length) start = existing.length
         if (end !in start..existing.length) end = start
         return SelectionInfo(existing.substring(start, end), start, end)
@@ -90,7 +96,8 @@ class VoxAccessibilityService : AccessibilityService() {
     /** Replace the exact range captured at trigger-time (AI-edit EDIT route). */
     fun replaceSelection(sel: SelectionInfo, newText: String): InjectResult {
         val node = focusedEditable() ?: return InjectResult.NO_TARGET
-        if (node.isPassword || !node.isEditable) return InjectResult.NO_TARGET
+        if (node.isPassword) return InjectResult.SECURE_FIELD
+        if (!node.isEditable) return InjectResult.NO_TARGET
         val existing = node.text?.toString() ?: ""
         if (sel.end > existing.length ||
             existing.substring(sel.start, sel.end) != sel.text) return InjectResult.NO_TARGET
