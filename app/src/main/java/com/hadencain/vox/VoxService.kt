@@ -18,7 +18,11 @@ class VoxService : Service() {
         super.onCreate()
         startForeground(1, buildNotification())
         bubble = BubbleOverlay(this,
-            onTap = { Log.i("Vox", "bubble tap"); Toast.makeText(this, "tap", Toast.LENGTH_SHORT).show() },
+            onTap = {
+                val svc = com.hadencain.vox.inject.VoxAccessibilityService.instance
+                val result = svc?.injectText("hello from vox ") ?: "A11Y OFF"
+                Toast.makeText(this, "inject: $result", Toast.LENGTH_SHORT).show()
+            },
             onLongPress = { Log.i("Vox", "bubble long-press"); Toast.makeText(this, "long-press", Toast.LENGTH_SHORT).show() })
         bubble.show()
         bubble.setState(BubbleState.IDLE)

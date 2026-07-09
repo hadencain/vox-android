@@ -1,1 +1,4 @@
-<resources><string name="app_name">Vox</string></resources>
+<resources>
+    <string name="app_name">Vox</string>
+    <string name="a11y_description">Vox uses this permission to type your dictated text into the app you are using — the same category of access any keyboard has. Vox never reads screen content except the text field you are dictating into, and nothing ever leaves your phone.</string>
+</resources>
