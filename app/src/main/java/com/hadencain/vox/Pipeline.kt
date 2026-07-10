@@ -120,7 +120,10 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     /** Runs on stateDispatcher (launched from handleTap, which itself runs there). */
     private fun handleStartTake() {
         val a11y = VoxAccessibilityService.instance
-        if (a11y == null) { service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return }
+        if (a11y == null) {
+            aiEditMode = false; aiEditSelection = null
+            service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return
+        }
         state = PipelineState.WAKING
         service.bubble.setState(BubbleState.WAKING)
         scope.launch(stateDispatcher) {
