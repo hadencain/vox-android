@@ -68,12 +68,39 @@ internal val VoxAmber = Color(0xFFF59E0B)
 internal val VoxStopped = Color(0xFF6B7280)
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_AUTOSTART = "autostart"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             VoxTheme {
                 VoxApp()
             }
+        }
+        handleAutostart(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAutostart(intent)
+    }
+
+    /** Reboot-resume hook: BootReceiver posts a notification (since a mic FGS can't
+     *  auto-start off BOOT_COMPLETED on Android 14+); tapping it opens this activity with
+     *  EXTRA_AUTOSTART=true, which is a legal, visible, user-initiated place to start
+     *  VoxService. Never auto-starts on a plain app open -- only when the extra is set. */
+    private fun handleAutostart(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_AUTOSTART, false) != true) return
+        intent.removeExtra(EXTRA_AUTOSTART) // consume so it doesn't re-fire on recreation
+        if (VoxService.isRunning) return
+        val setupComplete = Settings.canDrawOverlays(this) &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+            ModelDownloader.allPresent(this)
+        if (setupComplete) {
+            startForegroundService(Intent(this, VoxService::class.java))
         }
     }
 }
