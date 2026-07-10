@@ -224,15 +224,20 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     }
 
     fun shutdown() {
-        scope.cancel()
-        capture?.stop()
+        // Confine teardown to stateDispatcher so it serializes behind any in-flight take.
+        // runBlocking is a fresh scope — unaffected by scope.cancel(); bounded by take length.
         runBlocking {
-            withContext(asrDispatcher) { if (whisperHandle != 0L) WhisperBridge.release(whisperHandle) }
-            withContext(llmDispatcher) { cleanup?.close(); cleanup = null }
+            withContext(stateDispatcher) {
+                capture?.stop(); capture = null
+                if (whisperHandle != 0L) {
+                    withContext(asrDispatcher) { WhisperBridge.release(whisperHandle) }
+                    whisperHandle = 0L
+                }
+                cleanup?.let { c -> withContext(llmDispatcher) { c.close() } }
+                cleanup = null
+            }
         }
-        whisperHandle = 0L
-        stateDispatcher.close()
-        asrDispatcher.close()
-        llmDispatcher.close()
+        scope.cancel()
+        stateDispatcher.close(); asrDispatcher.close(); llmDispatcher.close()
     }
 }
