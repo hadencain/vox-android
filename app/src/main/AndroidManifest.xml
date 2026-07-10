@@ -5,11 +5,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="@string/app_name"
         android:theme="@style/Theme.Vox"
         android:allowBackup="false">
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".setup.OnboardingActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
