@@ -34,6 +34,7 @@ class AudioCapture(
     private var thread: Thread? = null
     private val buffer = ArrayList<Float>(sampleRate * 60)
     @Volatile private var running = false
+    @Volatile private var stopped = false
 
     @SuppressLint("MissingPermission")  // RECORD_AUDIO is gated by onboarding before any capture
     fun start() {
@@ -65,6 +66,8 @@ class AudioCapture(
     fun snapshot(): FloatArray = synchronized(buffer) { buffer.toFloatArray() }
 
     fun stop(): FloatArray {
+        if (stopped) return snapshot()
+        stopped = true
         running = false
         if (Thread.currentThread() !== thread) thread?.join(500); thread = null
         record?.let { it.stop(); it.release() }; record = null
