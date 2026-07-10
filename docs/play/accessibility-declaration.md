@@ -8,11 +8,15 @@
 
 ### Use Case
 
-Vox provides fully on-device voice dictation via an AccessibilityService for two purposes:
+Vox exists to provide voice-driven text entry for people who cannot or prefer not to type — motor or dexterity impairment, RSI and other repetitive-strain conditions, or situational hands-free need (hands occupied, device propped up, etc). The AccessibilityService is used for exactly two purposes in support of that:
 
 1. **Text Injection (hands-free typing):** When the user speaks into the floating dictation bubble, Vox uses the AccessibilityService to locate the currently focused editable text field in any foreground app and insert the dictated text as if typed. This is a hands-free input accessibility use — equivalent to how system keyboards and assistive keyboards access the text field.
 
 2. **Selection Reading (AI-edit mode):** When the user long-presses the bubble to activate "AI-edit" mode, Vox reads the user's current selection (highlighted text) from the focused field to enable selection-aware voice commands. The selected text is rewritten locally on-device using the user's voice instruction and then injected back into the original selection range.
+
+**What the service does not do:** Vox does not read screen content beyond the currently focused field, does not monitor accessibility events outside of the two actions above, and no data it reads or writes ever leaves the device. Secure fields (passwords, PINs) are detected and injection into them is refused outright.
+
+**Why accessibility instead of a custom keyboard (IME):** A floating bubble plus accessibility-based insertion works on top of the user's existing keyboard setup, rather than requiring them to switch their system default keyboard to a Vox-provided one — that's the reason for the accessibility approach over building an IME.
 
 ### Justification
 
@@ -20,9 +24,10 @@ The AccessibilityService is the only framework-supported way to inject text into
 
 ### Data Handling
 
-- **No data collected or transmitted.** All processing occurs locally on the device.
+- **Nothing is transmitted off the device.** All processing occurs locally. Vox does keep a local history of dictated text in the app's private storage (on by default) so users can review past dictations — see "Local Dictation History" below. That history never leaves the device, which is why it is not "collected" under Play's Data Safety definitions (collection means data transmitted off-device).
+- **Local Dictation History:** Dictated text is saved to a local JSONL log in app-private storage, enabled by default. It is never transmitted anywhere, and can be cleared at any time by clearing the app's data in Android Settings. An in-app toggle to disable this history is planned but not yet available in this version.
 - **Selection is never stored.** When reading a selection for AI-edit, the text is held only in memory during the rewrite operation and then immediately injected back.
-- **Clipboard read (AI-edit only):** For fallback injection if the accessibility tree does not expose the selection cleanly, Vox reads and immediately restores the user's clipboard. No clipboard contents are retained.
+- **Clipboard use is output-side only, never used to read a selection.** Selection reading for AI-edit is done entirely via the accessibility tree — the clipboard is never used to get text off the screen. The clipboard is touched in exactly two cases when Vox is producing output: (1) if no editable field is focused when a take finishes, Vox copies the transcript to the clipboard instead, with an on-screen toast, so the dictation isn't lost; (2) if direct accessibility-based injection into a field fails, Vox briefly places the text on the clipboard to paste it, then immediately restores whatever was on the clipboard beforehand. Android 12+ shows a system toast whenever an app reads or writes the clipboard, so the user sees both cases when they happen.
 - **Secure fields refused explicitly.** Vox detects password fields and other secure elements flagged by Android's accessibility APIs and refuses injection with a clear toast message ("Can't type into secure fields"). No attempt is made to inject into secure fields.
 
 ### Feature Scope in v1
@@ -33,66 +38,51 @@ The AccessibilityService is the only framework-supported way to inject text into
 - Raw/verbatim mode: skip cleanup for a single take
 - "Scratch that" cancel: spoken command to discard the take
 
-All processing is on-device. The one-time model download (first launch, over Wi-Fi) is the only network activity.
+All processing is on-device. The one-time model download (first launch, Whisper ~190MB + Gemma ~550MB ≈ 740MB total, Wi-Fi-only — enforced, not just recommended) is the only network activity.
 
 ---
 
-## Demo Video Shot List (30–60 seconds)
+## Demo Video Shot List (60 seconds)
 
-**Goal:** Show hands-free text entry into a real app, plus the secure-field safety guard.
+**Goal:** Show hands-free text entry into a real app, AI-edit on a selection, and the secure-field safety guard.
 
-### Scene 1: Onboarding & Permissions (0–5 sec)
-- Device locked, no apps open.
-- User unlocks, sees Vox main activity for the first time.
-- Screen shows "Device check (6GB RAM): PASS ✓" → "Tap to enable AccessibilityService" button (with brief plain-language explanation: "This lets Vox type into your apps").
-- User taps button → system deep-link opens Settings > Accessibility > Installed apps > Vox > toggle enabled.
-- Toggle animated from OFF to ON.
-- User returns to Vox app (back gesture or Settings breadcrumb), screen shows "Service enabled ✓ Ready to dictate".
+**Starting state (before recording):** Microphone, overlay, and notification permissions are already granted from a prior first-run — this demo starts with only the AccessibilityService still disabled, so the enable flow itself is on camera.
 
-### Scene 2: Core Dictation Flow (5–20 sec)
-- Open Google Keep (or system Notes app) in the foreground.
-- Vox floating bubble is visible (docked bottom-right, not obscuring the app).
-- User taps the bubble once.
-- Bubble animates → "Recording" state (visual indicator, e.g. pulsing red or mic icon).
-- Small live-caption sub-bubble appears near the main bubble (or at top of screen), showing streaming ASR partials in real-time as the user speaks.
-- User speaks: **"Hello, this is a voice dictation demo for Vox"** (or similar 1–2 sentence natural speech).
-- Live captions update phrase-by-phrase, showing ASR streaming.
-- User stops speaking (or after 2–3 seconds of silence, auto-stop triggers).
-- Bubble returns to "Processing" state (visual spinner).
-- After ~2–3 seconds (LLM cleanup running on-device), the caption sub-bubble fades.
-- Bubble returns to "Idle" state.
-- **Result:** The dictated text appears in the Keep note's focused text field, cleaned up and properly punctuated (e.g. "Hello, this is a voice dictation demo for Vox.").
+### Scene 1: Enable AccessibilityService (0–10 sec)
+- Vox main activity is open, showing "AccessibilityService: Disabled — tap to enable" with a brief plain-language explanation ("This lets Vox type into your apps").
+- User taps the button → system deep-link opens Settings > Accessibility > Installed apps > Vox.
+- Toggle animated from OFF to ON, confirmation dialog accepted.
+- User returns to Vox (back gesture), screen now shows "Service enabled — Ready to dictate".
 
-### Scene 3: AI-Edit Mode (20–35 sec)
-- Keep note now contains: "Hello, this is a voice dictation demo for Vox."
-- User triple-taps to select the word "demo" (or opens Keep's Edit menu to highlight a word).
-- User long-presses the Vox bubble (not a tap; a 1+ second press).
-- Bubble animates → "AI-Edit" state (distinct visual, e.g. blue highlight instead of red, with a "thinking" animation).
-- Bubble shows "Listening for rewrite command".
-- User speaks: **"Make it uppercase"** or **"Change it to 'example'"**.
-- Live caption shows the rewrite instruction being streamed.
-- After processing, bubble shows "Injecting…".
-- **Result:** The selected word changes to "DEMO" (or "example"), with the rest of the sentence intact in the field.
-- Bubble returns to Idle.
+### Scene 2: Open Keep and Focus a Note (10–18 sec)
+- User opens Google Keep, creates or opens a note.
+- Taps into the note body — cursor is now in a focused editable field.
+- Vox floating bubble is visible, docked bottom-right, not obscuring the note.
 
-### Scene 4: Secure-Field Safety Guard (35–45 sec)
-- App switches to Google Chrome or system browser.
-- User navigates to any login page with a password field (or uses a form with a password input).
-- Focus the password field (tap it).
-- User taps the Vox bubble.
-- Bubble briefly shows "Recording…".
-- User speaks: **"test password"** (or any phrase).
-- Bubble processes.
-- **Toast message appears at bottom:** "Can't type into secure fields" (or similar refusal message).
-- **No text is injected** into the password field; it remains empty.
-- Bubble returns to Idle, clearly safe.
+### Scene 3: Core Dictation (18–33 sec)
+- User taps the bubble once → "Recording" state (pulsing mic icon).
+- Small live-caption sub-bubble shows streaming ASR partials as the user speaks: **"Hello, this is a voice dictation demo for Vox"**.
+- User stops speaking; bubble shows "Processing" (on-device LLM cleanup, ~1–2 sec).
+- **Result:** cleaned, punctuated text lands in the Keep note's focused field ("Hello, this is a voice dictation demo for Vox."). Bubble returns to Idle.
 
-### Scene 5: Outro (45–60 sec)
-- Cut back to Keep note with the successful dictation (Scene 2 result) displayed.
-- Overlay text or voiceover: "Vox: 100% on-device, no network, no analytics."
-- Final frame shows Vox app icon and tagline.
+### Scene 4: Select Text and AI-Edit (33–48 sec)
+- User double-taps to select the word "demo" in the note.
+- User long-presses the Vox bubble (1+ second) → "AI-Edit" state (distinct blue highlight), shows "Listening for rewrite command".
+- User speaks: **"Change it to 'example'"**.
+- Bubble shows "Injecting…".
+- **Result:** the selected word changes to "example", rest of the sentence intact. Bubble returns to Idle.
 
-**Total duration:** ~50–55 seconds of footage (leave 5–10 seconds of breathing room within the 60-second limit).
+### Scene 5: Secure-Field Refusal (48–55 sec)
+- User switches to a login screen with a password field and taps into it.
+- User taps the Vox bubble → briefly shows "Recording…", user speaks a short phrase.
+- Bubble processes, then a **toast appears: "Can't type into secure fields."**
+- No text is injected; the password field remains empty. Bubble returns to Idle.
+
+### Scene 6: End Card (55–60 sec)
+- Cut to Vox app icon and tagline over a static frame.
+- Overlay text: "Vox — 100% on-device voice dictation."
+
+**Total: 60 seconds** (10 + 8 + 15 + 15 + 7 + 5).
 
 ---
 
@@ -106,9 +96,9 @@ All processing is on-device. The one-time model download (first launch, over Wi-
 
 4. **Safety guardrails:** Vox refuses to type into password fields and other secure elements, with a visible refusal message.
 
-5. **No data pipeline:** All processing is on-device. There is no logging, no analytics, no data transmission related to the text being dictated, injected, or read.
+5. **Nothing leaves the device:** All processing is on-device, and there is no logging, analytics, or transmission of dictated, injected, or read text. Vox does keep a local, on-device-only history of dictations for user review (on by default, clearable via app data) — see the Data Handling section above.
 
-6. **Fallback available:** If Vox is unable to use the AccessibilityService (e.g. user revokes it mid-session), text is available via clipboard fallback, ensuring the user is never silently left without recourse.
+6. **Fallback available:** If accessibility-based injection fails or isn't usable in a given field, the text falls back to the clipboard (briefly set, then the user's prior clipboard is restored) or is copied out for manual paste, ensuring the user is never silently left without recourse.
 
 ---
 

@@ -16,7 +16,7 @@
 
 #### Overview
 
-Vox is a fully on-device voice dictation app. Your privacy is paramount. **We do not collect, store, transmit, or share any of your dictated text, audio, selections, or personal data.** All processing happens locally on your device.
+Vox is a fully on-device voice dictation app. Your privacy is paramount. **We do not transmit or share your dictated text, audio, selections, or personal data with anyone — everything is processed locally on your device.** Vox does keep a local history of your dictations in the app's private storage so you can review past takes (see "Local Dictation History" below); that history never leaves your phone.
 
 #### What Vox Does
 
@@ -27,13 +27,19 @@ Vox is a fully on-device voice dictation app. Your privacy is paramount. **We do
 
 2. **Text Injection:** Vox uses Android's AccessibilityService framework to locate your currently focused text field and inject the dictated (and cleaned) text. This is equivalent to how system keyboards type.
 
-3. **Selection Reading (AI-Edit Mode):** When you long-press the bubble to rewrite selected text, Vox reads the current selection from the accessibility tree, processes the rewrite instruction locally, and injects the revised text back. Selections are never stored.
+3. **Selection Reading (AI-Edit Mode):** When you long-press the bubble to rewrite selected text, Vox reads the current selection from the accessibility tree, processes the rewrite instruction locally, and injects the revised text back. Selections are never stored. No clipboard is involved in reading the selection.
 
-4. **Model Download (First Launch Only):** On your first use, Vox downloads the Whisper and Gemma model files (approximately 1–2 GB combined) over Wi-Fi. This is a one-time, resumable download. **After download, zero network calls occur.** The app is entirely offline.
+4. **Clipboard (output only):** Vox touches the clipboard in exactly two cases, both when producing output: (a) if no editable field is focused when a take finishes, the transcript is copied to the clipboard instead, with an on-screen toast, so it isn't lost; (b) if direct injection into a field fails, Vox briefly places the text on the clipboard to paste it, then immediately restores your prior clipboard contents. Android 12+ shows a system toast on every clipboard read/write, so you'll see both cases when they happen.
 
-#### What Vox Does NOT Collect
+5. **Local Dictation History:** Vox keeps a local history of your dictated text in the app's private storage (a JSONL log), on by default, so you can review past dictations. This history is stored only on your device, is never transmitted anywhere, and can be cleared at any time by clearing the app's data in Android Settings. An in-app toggle to turn this off is planned but not yet available in this version.
 
-- ❌ Your dictated text
+6. **Model Download (First Launch Only):** On your first use, Vox downloads the Whisper (~190MB) and Gemma (~550MB) model files — about 740MB combined — over a Wi-Fi-only connection (enforced by the OS download manager, not just recommended). This is a one-time, resumable download. **After download, zero network calls occur.** The app is entirely offline.
+
+#### What Vox Does NOT Transmit or Share
+
+*(Vox does keep a local, on-device-only history of your dictated text — see "Local Dictation History" above. Nothing below is ever transmitted off your device or shared with anyone, including us.)*
+
+- ❌ Your dictated text — never leaves the device (stored locally only, see above)
 - ❌ Your voice/audio
 - ❌ Your selected text or edits
 - ❌ Your app usage or behavior
@@ -44,9 +50,13 @@ Vox is a fully on-device voice dictation app. Your privacy is paramount. **We do
 
 #### Permissions
 
-- **RECORD_AUDIO** — Required to access the microphone for dictation.
-- **SYSTEM_ALERT_WINDOW** — Required to display the floating bubble overlay on your screen.
-- **ACCESSIBILITY_SERVICE** — Required to find your currently focused text field and inject dictated text. Used **only** for text injection and selection reading for AI-edit mode.
+- **RECORD_AUDIO** — Captures microphone audio for on-device dictation.
+- **SYSTEM_ALERT_WINDOW** — Displays the floating dictation bubble over other apps.
+- **FOREGROUND_SERVICE** — Keeps the dictation service running while you use other apps.
+- **FOREGROUND_SERVICE_MICROPHONE** — Required by Android to run a foreground service that uses the microphone.
+- **POST_NOTIFICATIONS** — Shows the persistent notification required while the foreground service is active.
+- **INTERNET** — Used exclusively for the one-time model download; you can verify no other network traffic occurs after setup.
+- **Accessibility Service (bound via `BIND_ACCESSIBILITY_SERVICE`)** — Not a manifest permission you grant like the others; enabled separately in Settings. Lets Vox find your currently focused text field to insert dictated text, and read an explicit selection for AI-edit mode. Used for nothing else.
 
 #### Security
 
@@ -67,13 +77,15 @@ For privacy questions or concerns, contact: [INSERT CONTACT EMAIL]
 
 ## Data Safety Form — Play Console Answers
 
+**Note on scope:** Play's Data Safety definitions treat "collection" as data transmitted off the user's device — purely on-device storage that the app never sends anywhere does not count as "collected" or "shared." Vox keeps a local, on-device-only history of dictated text (see the Privacy Policy's "Local Dictation History" section above); it is never transmitted, so the answers below are truthful "No"s in Play's terms, but they are not a claim that Vox stores nothing at all on the device.
+
 ### 1. Does this app collect or share user data?
 
-**Answer:** No
+**Answer:** No (off-device transmission/sharing). Note: Vox keeps a local, on-device-only dictation history that is never transmitted — see scope note above.
 
 ### 2. If yes, which categories of user data are collected or shared?
 
-**Answer:** N/A (not applicable — no data is collected or shared)
+**Answer:** N/A (not applicable — no data is transmitted off-device or shared)
 
 ### 3. Does this app use encrypted transport?
 
@@ -81,15 +93,15 @@ For privacy questions or concerns, contact: [INSERT CONTACT EMAIL]
 
 ### 4. Is data collected encrypted in transit?
 
-**Answer:** Not applicable — the app collects no data.
+**Answer:** Not applicable — the app does not transmit user data off the device.
 
 ### 5. Is data stored encrypted at rest?
 
-**Answer:** Not applicable — the app stores no user data.
+**Answer:** Not applicable in the Play Data Safety sense — no collected (i.e. transmitted) data exists to store server-side. (The on-device dictation history uses standard Android app-private storage, sandboxed to Vox by the OS.)
 
 ### 6. Do users have the ability to request deletion of data collected about them?
 
-**Answer:** Not applicable — no data is collected.
+**Answer:** Not applicable — no data is collected/transmitted off-device. The on-device dictation history can be cleared at any time by clearing the app's data in Android Settings.
 
 ### 7. Is this a kids app?
 
@@ -118,7 +130,7 @@ On-device voice-to-text dictation. No data collection, 100% private.
 Vox is a fully on-device voice dictation app that types what you say into any Android app.
 
 PRIVACY-FIRST
-All processing happens on your device. Your voice, your dictated text, and any selections are never recorded, uploaded, or transmitted. We have zero analytics, zero ads, and zero data collection.
+All processing happens on your device. Your voice and dictated text are never uploaded or transmitted anywhere. Vox keeps a local history of your dictations in private on-device storage so you can review past takes (on by default; clear it anytime by clearing app data) — that history never leaves your phone. We have zero analytics, zero ads, and zero off-device data collection.
 
 HOW IT WORKS
 • Tap the floating Vox bubble to start dictating
@@ -160,12 +172,12 @@ ACCESSIBILITY
 Vox uses AccessibilityService to locate your currently focused text field and inject your dictated text. This is the same mechanism that system keyboards and accessibility keyboards use. You control when the service is enabled and can disable it anytime in Settings.
 
 COMPATIBILITY
-Works with any Android app that has a text input field—Google Keep, Gmail, Messages, web forms in Chrome, third-party note apps, social media, email clients, and more. Compatible with both ACTION_SET_TEXT injection and clipboard fallback.
+Works with any Android app that has a text input field—Google Keep, Gmail, Messages, web forms in Chrome, third-party note apps, social media, email clients, and more. Uses direct text insertion, with a clipboard-paste fallback for apps that don't support it.
 
 GET STARTED
 1. Install Vox
 2. Open the app and enable the AccessibilityService when prompted
-3. Let Vox download its models (one-time, ~1–2 GB, over Wi-Fi recommended)
+3. Let Vox download its models (one-time, ~740MB total, Wi-Fi only — required, not just recommended)
 4. Tap the floating bubble anywhere and start dictating
 5. Your text appears instantly, perfectly cleaned up
 
@@ -181,8 +193,9 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
 - Raw mode for verbatim transcription
 - "Scratch that" voice cancel
 - Floating bubble overlay, works in any app
+- Local dictation history saved privately on-device (on by default, clearable anytime)
 - Requires ~6GB RAM minimum
-- One-time model download (1–2 GB), then fully offline
+- One-time model download (~740MB total), then fully offline
 
 ---
 
@@ -197,8 +210,8 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
 | 5 | AI-Edit Mode | Another Keep note entry with selected text highlighted. Bubble is in "AI-Edit" state (blue highlight or distinct visual). Caption shows rewrite instruction ("Make it formal"). | Showcase the AI-edit feature. |
 | 6 | AI-Edit Result | Same entry with selected text changed/rewritten. | Show successful rewrite injection. |
 | 7 | Settings / Service Status | Vox settings screen or main activity showing "AccessibilityService: Enabled ✓" and service status summary. | Assure users about permission status and privacy. |
-| 8 | Custom Dictionary | Settings screen showing custom dictionary entries (e.g. "Vox" → "Vox", "GML" → "GML"). | Highlight personalization feature. |
-| 9 | Privacy/Info Screen | App info or settings screen clearly stating "Zero data collection" and "100% on-device processing". | Reinforce privacy messaging on store listing. |
+| 8 | Custom Dictionary | Settings screen showing a custom dictionary entry that corrects a real mis-transcription (e.g. "jemma" → "Gemma"). | Highlight personalization feature. |
+| 9 | Privacy/Info Screen | App info or settings screen stating "100% on-device processing — nothing is transmitted off your device" with a note about the local dictation history and how to clear it. | Reinforce privacy messaging on store listing. |
 | 10 | Multi-App Compatibility | Montage or grid showing Vox working in 3–4 different apps (Gmail, Messages, Chrome address bar, web form). | Demonstrate broad compatibility. |
 
 **Tablet / Large-Screen Screenshots:** Recommend at least 2–3 screenshots showing the app on a larger device to cover the Google Play tablet compatibility criteria.
@@ -241,7 +254,7 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
 ### Model Hosting
 
 - [ ] **Whisper Model Hosting URL**
-  - Model: `ggml-small-q5_1.bin` (~1.5 GB)
+  - Model: `ggml-small-q5_1.bin` (~190MB)
   - Hosting provider: (Choose one)
     - [ ] Hugging Face (free, public model repo)
     - [ ] GitHub Releases (free, but size-limited to 2GB per file)
@@ -252,7 +265,7 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
   - **URL:** `[INSERT URL]`
 
 - [ ] **Gemma Model Hosting URL**
-  - Model: `gemma3-1b-it-int4.task` (~1.5 GB, MediaPipe format)
+  - Model: `gemma3-1b-it-int4.task` (~550MB, MediaPipe format)
   - Same hosting provider as Whisper (keep URLs consistent)
   - **Action:** Upload model, generate direct download URL, test resumability
   - **URL:** `[INSERT URL]`
