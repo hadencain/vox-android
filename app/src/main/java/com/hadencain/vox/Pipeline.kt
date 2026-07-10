@@ -7,6 +7,7 @@ import com.hadencain.vox.asr.WhisperBridge
 import com.hadencain.vox.cleanup.CleanupEngine
 import com.hadencain.vox.core.*
 import com.hadencain.vox.inject.InjectResult
+import com.hadencain.vox.inject.SelectionInfo
 import com.hadencain.vox.inject.VoxAccessibilityService
 import com.hadencain.vox.ui.BubbleState
 import kotlinx.coroutines.*
@@ -60,6 +61,8 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     private var unloadJob: Job? = null
     private var targetPackage: String? = null
     private var partialsJob: Job? = null
+    private var aiEditSelection: SelectionInfo? = null
+    private var aiEditMode = false
 
     private val history = History(File(service.filesDir, "history.jsonl"), settings.historyMax)
 
@@ -88,7 +91,25 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         }
     }
 
-    private fun handleLongPress() { toast("AI edit arrives in a later task") }
+    /** Runs on stateDispatcher (launched from onLongPress). Captures the selection at
+     *  trigger-time (spec), then reuses the normal take-start path with aiEditMode set. */
+    private suspend fun handleLongPress() {
+        if (state != PipelineState.IDLE && state != PipelineState.WAKING) return
+        val a11y = VoxAccessibilityService.instance
+        if (a11y == null) { service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return }
+        aiEditSelection = withContext(Dispatchers.Main) { a11y.readSelection() }
+        aiEditMode = true
+        handleStartTake()
+        service.bubble.setCaption(takeStartCaption())
+    }
+
+    /** Caption shown while WAKING/RECORDING -- mode-dependent so the async model-load
+     *  continuation in handleStartTake doesn't stomp the AI-edit prompt with "listening…". */
+    private fun takeStartCaption(): String = when {
+        !aiEditMode -> "listening…"
+        aiEditSelection?.text?.isNotEmpty() == true -> "AI edit: speak an instruction…"
+        else -> "AI generate: speak what you want…"
+    }
 
     private fun handleCaptionTap() {
         if (state != PipelineState.RECORDING) return
@@ -104,7 +125,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         service.bubble.setState(BubbleState.WAKING)
         scope.launch(stateDispatcher) {
             try {
-                ensureModelsLoaded() ?: run { fail("models not loaded"); return@launch }
+                ensureModelsLoaded(requireLlm = aiEditMode) ?: run { fail("models not loaded"); return@launch }
                 targetPackage = a11y.foregroundPackage
                 rawMode = false
                 val newCapture = AudioCapture(
@@ -115,7 +136,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 capture = newCapture
                 state = PipelineState.RECORDING
                 service.bubble.setState(BubbleState.RECORDING)
-                service.bubble.setCaption("listening…")
+                service.bubble.setCaption(takeStartCaption())
                 // Capture the confined fields we need ONCE, here on stateDispatcher, into
                 // local vals passed into the loop below -- the loop itself runs off
                 // stateDispatcher (so it can never block a tap) and must never read
@@ -169,6 +190,27 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 if (raw.isEmpty() || Commands.isCancel(raw, settings.enableCommands)) {
                     finishIdle(); return@launch
                 }
+                if (aiEditMode) {
+                    aiEditMode = false
+                    val sel = aiEditSelection; aiEditSelection = null
+                    if (cleanup == null) { fail("AI edit needs the cleanup model"); return@launch }
+                    val editResult = withTimeoutOrNull(30_000) {
+                        withContext(llmDispatcher) { cleanup!!.aiEdit(raw, sel?.text) }
+                    } ?: ""
+                    if (editResult.isEmpty()) { fail("AI edit produced nothing"); return@launch }
+                    val outcome = withContext(Dispatchers.Main) {
+                        val svc = VoxAccessibilityService.instance ?: return@withContext InjectResult.NO_TARGET
+                        if (sel != null && sel.text.isNotEmpty()) svc.replaceSelection(sel, editResult)
+                        else svc.injectText(editResult)
+                    }
+                    if (outcome != InjectResult.INJECTED) {
+                        withContext(Dispatchers.Main) { copyToClipboard(editResult) }
+                        toast("Couldn't apply edit — result copied to clipboard")
+                    }
+                    if (settings.saveHistory) history.append(HistoryEntry(
+                        System.currentTimeMillis(), raw, editResult, targetPackage, "aiedit"))
+                    finishIdle(); return@launch
+                }
                 val appCtx = if (settings.enableContext) ContextMap.category(targetPackage) else null
                 val cleaned = if (rawMode || !settings.enableCleanup) raw else
                     withTimeoutOrNull(20_000) { withContext(llmDispatcher) { cleanup!!.clean(raw, appCtx) } } ?: raw
@@ -195,14 +237,14 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     }
 
     /** Called only from within stateDispatcher-confined coroutines. */
-    private suspend fun ensureModelsLoaded(): Unit? {
+    private suspend fun ensureModelsLoaded(requireLlm: Boolean = false): Unit? {
         unloadJob?.cancel()
         if (whisperHandle == 0L) {
             if (!whisperModel.exists()) return null
             whisperHandle = withContext(asrDispatcher) { WhisperBridge.init(whisperModel.path) }
             if (whisperHandle == 0L) return null
         }
-        if (cleanup == null && settings.enableCleanup) {
+        if (cleanup == null && (settings.enableCleanup || requireLlm)) {
             if (!gemmaModel.exists()) return null
             cleanup = try {
                 withContext(llmDispatcher) { CleanupEngine(service, gemmaModel.path) }
@@ -231,6 +273,8 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
 
     private fun finishIdle() {
         state = PipelineState.IDLE
+        aiEditMode = false
+        aiEditSelection = null
         service.bubble.setState(BubbleState.IDLE)
         service.bubble.setCaption(null)
         scheduleUnload()
@@ -239,6 +283,8 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     private fun fail(msg: String) {
         Log.e("Vox", "pipeline: $msg")
         state = PipelineState.IDLE
+        aiEditMode = false
+        aiEditSelection = null
         service.bubble.setState(BubbleState.ERROR)
         service.bubble.setCaption(null)
         toast("Vox: $msg")
