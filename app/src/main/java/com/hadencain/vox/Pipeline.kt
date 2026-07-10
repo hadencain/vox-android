@@ -52,6 +52,12 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     // only from stateDispatcher.
     @Volatile private var state = PipelineState.IDLE
 
+    // Sanctioned cross-thread read of the @Volatile `state` field only -- never read the
+    // stateDispatcher-confined fields below from outside stateDispatcher. Used by
+    // VoxService's a11y-revocation watcher (main thread) to decide whether it's safe to
+    // repaint the bubble without racing an in-flight take.
+    val isIdle: Boolean get() = state == PipelineState.IDLE
+
     // Below fields: read/written ONLY on stateDispatcher. No @Volatile needed -- thread
     // confinement is the guarantee, not memory visibility annotations.
     private var rawMode = false
@@ -96,7 +102,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     private suspend fun handleLongPress() {
         if (state != PipelineState.IDLE) return
         val a11y = VoxAccessibilityService.instance
-        if (a11y == null) { service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return }
+        if (a11y == null) { service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); openA11ySettings(); return }
         aiEditSelection = withContext(Dispatchers.Main) { a11y.readSelection() }
         aiEditMode = true
         handleStartTake()
@@ -123,7 +129,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         val a11y = VoxAccessibilityService.instance
         if (a11y == null) {
             aiEditMode = false; aiEditSelection = null
-            service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return
+            service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); openA11ySettings(); return
         }
         state = PipelineState.WAKING
         service.bubble.setState(BubbleState.WAKING)
@@ -293,6 +299,14 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         service.bubble.setCaption(null)
         toast("Vox: $msg")
         scheduleUnload()
+    }
+
+    /** Deep-link into system Accessibility settings so the user can re-enable Vox
+     *  without hunting for it. Fired whenever a take is blocked by a11y revocation. */
+    private fun openA11ySettings() {
+        service.startActivity(
+            android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     private fun copyToClipboard(text: String) {
