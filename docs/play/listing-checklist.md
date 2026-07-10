@@ -121,7 +121,7 @@ For privacy questions or concerns, contact: [INSERT CONTACT EMAIL]
 
 ### Short Description (80 characters max)
 ```
-On-device voice-to-text dictation. No data collection, 100% private.
+On-device voice-to-text dictation. No off-device data collection, 100% private.
 ```
 
 ### Full Description (4000 characters)
@@ -145,16 +145,14 @@ Long-press the bubble to activate AI-Edit mode:
 • Speak a rewrite instruction ("Make it shorter", "Formal tone", "Fix typos")
 • Your selected text is rewritten on-device and injected back instantly
 
-CUSTOM DICTIONARY
-Add your own words and corrections:
-• Teach Vox your name, company, technical terms, or common mistakes
-• Post-processing find/replace gives you full control over cleanup
-
 RAW MODE
 Skip the LLM cleanup for a take and inject the raw transcript instead—ideal for code, names, or precise technical language where cleanup would break things.
 
 "SCRATCH THAT"
 Just say it to discard the entire take and start over without leaving the app.
+
+COMING IN V1.1
+A custom dictionary (your own words and corrections, post-processing find/replace) is planned for a future release.
 
 DEVICE REQUIREMENTS
 Vox requires approximately 6GB of device RAM to run the on-device models efficiently. The app will refuse to run on devices below this threshold to ensure a smooth, responsive experience.
@@ -186,20 +184,22 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
 
 ### Key Features List (as bullet points for the listing)
 - 100% on-device voice dictation
-- No data collection, no analytics, no ads
+- No off-device data collection, no analytics, no ads
 - Whisper.cpp speech recognition + Gemma LLM cleanup
 - AI-Edit mode: rewrite selected text by voice
-- Custom dictionary for names and corrections
 - Raw mode for verbatim transcription
 - "Scratch that" voice cancel
 - Floating bubble overlay, works in any app
 - Local dictation history saved privately on-device (on by default, clearable anytime)
 - Requires ~6GB RAM minimum
 - One-time model download (~740MB total), then fully offline
+- Custom dictionary for names and corrections — planned for v1.1, not in this release
 
 ---
 
 ## Screenshot List (8–10 screenshots recommended)
+
+**Note:** v1 has no in-app settings UI (custom dictionary is plumbed in code but has no editor), so the two settings-screen screenshots from earlier drafts are cut for this release. They return once the settings UI ships (v1.1).
 
 | # | Screen | Description | Purpose |
 |---|--------|-------------|---------|
@@ -209,10 +209,8 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
 | 4 | Cleaned Result | Same Keep note, now with final injected text: "Hello, this is a voice dictation demo for Vox." Text is clean, punctuated, capitalized. | Prove that cleanup works and text lands correctly. |
 | 5 | AI-Edit Mode | Another Keep note entry with selected text highlighted. Bubble is in "AI-Edit" state (blue highlight or distinct visual). Caption shows rewrite instruction ("Make it formal"). | Showcase the AI-edit feature. |
 | 6 | AI-Edit Result | Same entry with selected text changed/rewritten. | Show successful rewrite injection. |
-| 7 | Settings / Service Status | Vox settings screen or main activity showing "AccessibilityService: Enabled ✓" and service status summary. | Assure users about permission status and privacy. |
-| 8 | Custom Dictionary | Settings screen showing a custom dictionary entry that corrects a real mis-transcription (e.g. "jemma" → "Gemma"). | Highlight personalization feature. |
-| 9 | Privacy/Info Screen | App info or settings screen stating "100% on-device processing — nothing is transmitted off your device" with a note about the local dictation history and how to clear it. | Reinforce privacy messaging on store listing. |
-| 10 | Multi-App Compatibility | Montage or grid showing Vox working in 3–4 different apps (Gmail, Messages, Chrome address bar, web form). | Demonstrate broad compatibility. |
+| 7 | Privacy/Info Screen | App info or settings screen stating "100% on-device processing — nothing is transmitted off your device" with a note about the local dictation history and how to clear it. | Reinforce privacy messaging on store listing. |
+| 8 | Multi-App Compatibility | Montage or grid showing Vox working in 3–4 different apps (Gmail, Messages, Chrome address bar, web form). | Demonstrate broad compatibility. |
 
 **Tablet / Large-Screen Screenshots:** Recommend at least 2–3 screenshots showing the app on a larger device to cover the Google Play tablet compatibility criteria.
 
@@ -283,12 +281,22 @@ Questions? All on-device. No servers. No servers means no downtime, no privacy c
   - Sign with keystore from above
   - Verify signature: `jarsigner -verify -certs build/outputs/bundle/release/app-release.aab`
   - **Output file:** `build/outputs/bundle/release/app-release.aab`
+  - [ ] **Verify R8/proguard keep rules for `tasks-genai` (MediaPipe LLM Inference)** on the
+    *first* `bundleRelease` — this is a release-only build variant, so R8 stripping/obfuscation
+    of the MediaPipe native bindings has never been exercised before. Confirm Gemma cleanup
+    and AI-edit still work on the release build, not just debug.
 
 - [ ] **Test Signed Build on Device**
   - Upload signed bundle to Play Console internal testing track
   - Install on test device (Samsung S24 Ultra + floor-spec device)
   - Run full flow: device check → onboarding → model download → dictate → inject → AI-edit
   - Confirm all telemetry and analytics are disabled
+  - [ ] **Device-gate regressions to re-check on the signed build:**
+    - [ ] Paste-fallback clipboard behavior (clipboard is restored only when the pre-paste read
+      actually returned a value; a denied/null read must not wipe the user's clipboard)
+    - [ ] Sticky-restart after `am kill` (service should not crash-loop if overlay permission or
+      foreground-service start is unavailable at restart time)
+    - [ ] RAM gate on a real ~6GB device (floor-spec device should pass, not be falsely blocked)
   - **Action:** Device testing complete, screenshot results
 
 ### Play Console Setup

@@ -8,13 +8,15 @@
 
 ### Use Case
 
-Vox exists to provide voice-driven text entry for people who cannot or prefer not to type — motor or dexterity impairment, RSI and other repetitive-strain conditions, or situational hands-free need (hands occupied, device propped up, etc). The AccessibilityService is used for exactly two purposes in support of that:
+Vox exists to provide voice-driven text entry for people who cannot or prefer not to type — motor or dexterity impairment, RSI and other repetitive-strain conditions, or situational hands-free need (hands occupied, device propped up, etc). The AccessibilityService is used for three purposes in support of that:
 
 1. **Text Injection (hands-free typing):** When the user speaks into the floating dictation bubble, Vox uses the AccessibilityService to locate the currently focused editable text field in any foreground app and insert the dictated text as if typed. This is a hands-free input accessibility use — equivalent to how system keyboards and assistive keyboards access the text field.
 
 2. **Selection Reading (AI-edit mode):** When the user long-presses the bubble to activate "AI-edit" mode, Vox reads the user's current selection (highlighted text) from the focused field to enable selection-aware voice commands. The selected text is rewritten locally on-device using the user's voice instruction and then injected back into the original selection range.
 
-**What the service does not do:** Vox does not read screen content beyond the currently focused field, does not monitor accessibility events outside of the two actions above, and no data it reads or writes ever leaves the device. Secure fields (passwords, PINs) are detected and injection into them is refused outright.
+3. **Foreground-App Detection:** Vox listens for `TYPE_WINDOW_STATE_CHANGED` accessibility events to track which app is currently in the foreground. This is used to adapt the cleanup style to the app being dictated into (e.g. a messaging app vs. a code editor get different cleanup behavior), and the foreground app's package name is also stored alongside each entry in the local, on-device dictation history described below.
+
+**What the service does not do:** Vox does not read screen content beyond the currently focused field, does not read or store the content of any window other than the focused field, and no data it reads or writes ever leaves the device. The only accessibility events consumed are `TYPE_WINDOW_STATE_CHANGED` (for foreground-app detection) and the on-demand field/selection reads described in the two actions above. Secure fields (passwords, PINs) are detected and injection into them is refused outright.
 
 **Why accessibility instead of a custom keyboard (IME):** A floating bubble plus accessibility-based insertion works on top of the user's existing keyboard setup, rather than requiring them to switch their system default keyboard to a Vox-provided one — that's the reason for the accessibility approach over building an IME.
 
@@ -32,7 +34,7 @@ The AccessibilityService is the only framework-supported way to inject text into
 
 ### Feature Scope in v1
 
-- Core dictation: hold-to-talk floating bubble → Whisper ASR → Gemma LLM cleanup → text injection
+- Core dictation: tap-to-toggle floating bubble → Whisper ASR (whisper.cpp/ggml, on-device CPU) → Gemma LLM cleanup (via MediaPipe LLM Inference) → text injection
 - AI-edit mode: long-press bubble → read selection → speak rewrite instruction → inject revised text
 - Custom dictionary: post-transcription find/replace (no a11y tree access needed)
 - Raw/verbatim mode: skip cleanup for a single take
