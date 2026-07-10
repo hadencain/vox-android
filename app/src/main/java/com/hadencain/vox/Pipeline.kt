@@ -94,12 +94,13 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     /** Runs on stateDispatcher (launched from onLongPress). Captures the selection at
      *  trigger-time (spec), then reuses the normal take-start path with aiEditMode set. */
     private suspend fun handleLongPress() {
-        if (state != PipelineState.IDLE && state != PipelineState.WAKING) return
+        if (state != PipelineState.IDLE) return
         val a11y = VoxAccessibilityService.instance
         if (a11y == null) { service.bubble.setState(BubbleState.DISABLED); toast("Enable Vox in Accessibility settings"); return }
         aiEditSelection = withContext(Dispatchers.Main) { a11y.readSelection() }
         aiEditMode = true
         handleStartTake()
+        if (state == PipelineState.IDLE) return  // start bailed (e.g. a11y revoked) — don't paint a caption over the DISABLED bubble
         service.bubble.setCaption(takeStartCaption())
     }
 
