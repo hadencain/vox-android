@@ -19,6 +19,7 @@ import com.hadencain.vox.ui.BubbleState
 class VoxService : Service() {
     companion object {
         const val ACTION_STOP = "com.hadencain.vox.STOP"
+        @Volatile var isRunning = false
     }
 
     lateinit var bubble: BubbleOverlay
@@ -85,6 +86,7 @@ class VoxService : Service() {
         }
         bubble.setState(BubbleState.IDLE)
         handler.post(a11yWatch)
+        isRunning = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -103,6 +105,7 @@ class VoxService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         // Stop the watcher before tearing down the pipeline -- shutdown() blocks briefly on
         // stateDispatcher, and a queued watcher tick firing mid-teardown (or after bubble is
         // torn down) would touch a half-destroyed pipeline/bubble.
