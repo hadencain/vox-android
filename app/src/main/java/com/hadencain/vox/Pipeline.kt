@@ -59,6 +59,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     private var cleanup: CleanupEngine? = null
     private var unloadJob: Job? = null
     private var targetPackage: String? = null
+    private var partialsJob: Job? = null
 
     private val history = History(File(service.filesDir, "history.jsonl"), settings.historyMax)
 
@@ -115,6 +116,30 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 state = PipelineState.RECORDING
                 service.bubble.setState(BubbleState.RECORDING)
                 service.bubble.setCaption("listening…")
+                // Capture the confined fields we need ONCE, here on stateDispatcher, into
+                // local vals passed into the loop below -- the loop itself runs off
+                // stateDispatcher (so it can never block a tap) and must never read
+                // `capture`/`whisperHandle` directly, since those are thread-confined.
+                val partialsCapture = newCapture
+                val partialsHandle = whisperHandle
+                partialsJob = scope.launch {
+                    // Runs on the default dispatcher, not stateDispatcher. `state` is
+                    // @Volatile, so reading it cross-thread here is acceptable for this
+                    // display-only loop -- worst case is one stale/skipped caption update.
+                    while (isActive && state == PipelineState.RECORDING) {
+                        delay(1500)
+                        if (!isActive || state != PipelineState.RECORDING) break
+                        val snap = partialsCapture.snapshot()
+                        if (snap.size < 16000) continue  // wait for >=1s of audio
+                        // All native WhisperBridge calls must go through asrDispatcher --
+                        // whisper_full is not reentrant on one context.
+                        val partial = withContext(asrDispatcher) {
+                            WhisperBridge.transcribe(partialsHandle, snap, null)
+                        }.trim()
+                        if (state == PipelineState.RECORDING && partial.isNotEmpty())
+                            service.bubble.setCaption(partial)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("Vox", "start take failed", e); fail(e.message ?: "error")
             }
@@ -128,6 +153,12 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         service.bubble.setState(BubbleState.PROCESSING)
         scope.launch(stateDispatcher) {
             try {
+                // Cancel the partials loop before the final transcribe. The serial
+                // asrDispatcher already prevents concurrent native access, but without this
+                // a queued partial would sit ahead of the final transcribe on that
+                // dispatcher and delay it. cancelAndJoin cooperates at the loop's delay()
+                // and withContext suspension points.
+                partialsJob?.cancelAndJoin(); partialsJob = null
                 val samples = capture!!.stop(); capture = null
                 if (samples.size < 8000) { finishIdle(); return@launch }  // <0.5s: nothing real
                 val bias = Dictionary.biasPrompt(settings.vocab)
@@ -228,6 +259,10 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         // runBlocking is a fresh scope — unaffected by scope.cancel(); bounded by take length.
         runBlocking {
             withContext(stateDispatcher) {
+                // If shutdown races a live take, stop the partials loop before releasing
+                // the whisper handle below -- otherwise a queued/in-flight partial could
+                // call WhisperBridge.transcribe with a handle that's about to be freed.
+                partialsJob?.cancelAndJoin(); partialsJob = null
                 capture?.stop(); capture = null
                 if (whisperHandle != 0L) {
                     withContext(asrDispatcher) { WhisperBridge.release(whisperHandle) }
