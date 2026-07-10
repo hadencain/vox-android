@@ -306,9 +306,16 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         aiEditMode = false
         aiEditSelection = null
         service.bubble.setState(BubbleState.ERROR)
-        service.bubble.setCaption(null)
+        service.bubble.setCaption("⚠ $msg")
         toast("Vox: $msg")
         scheduleUnload()
+        // Some OEM builds let the user suppress Vox's toasts entirely, which made failures
+        // invisible (observed on Samsung). The caption is the fallback surface -- clear it
+        // after 5s, but only if nothing else has started a new take in the meantime.
+        scope.launch(stateDispatcher) {
+            delay(5000)
+            if (state == PipelineState.IDLE) service.bubble.setCaption(null)
+        }
     }
 
     /** Deep-link into system Accessibility settings so the user can re-enable Vox

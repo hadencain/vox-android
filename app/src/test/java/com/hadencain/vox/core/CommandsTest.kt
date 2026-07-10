@@ -16,4 +16,11 @@ class CommandsTest {
         assertFalse(Commands.isCancel("scratch that", false))
         assertFalse(Commands.isCancel("", true))
     }
+    @Test fun `utterance ending with a cancel phrase cancels`() {
+        assertTrue(Commands.isCancel("I'm testing my new tool. Scratch that.", true))
+        assertTrue(Commands.isCancel("set a meeting for thursday never mind", true))
+    }
+    @Test fun `cancel phrase mid-sentence does not cancel`() {
+        assertFalse(Commands.isCancel("please scratch that off the list", true))
+    }
 }

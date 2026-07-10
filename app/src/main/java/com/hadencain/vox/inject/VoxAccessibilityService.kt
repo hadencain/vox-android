@@ -43,7 +43,10 @@ class VoxAccessibilityService : AccessibilityService() {
         val node = focusedEditable() ?: return InjectResult.NO_TARGET
         if (node.isPassword) return InjectResult.SECURE_FIELD
         if (!node.isEditable) return InjectResult.NO_TARGET
-        val existing = node.text?.toString() ?: ""
+        // Some OEM keyboards (Samsung Messages observed) report the field's hint text as
+        // node.text when the field is empty -- e.g. "RCS message". Treat that as empty so
+        // we don't splice the transcript into the middle of the placeholder.
+        val existing = if (node.isShowingHintText) "" else node.text?.toString() ?: ""
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
         if (start > end) { val t = start; start = end; end = t }
@@ -89,7 +92,7 @@ class VoxAccessibilityService : AccessibilityService() {
         val node = focusedEditable() ?: return null
         if (node.isPassword) return null
         if (!node.isEditable) return null
-        val existing = node.text?.toString() ?: ""
+        val existing = if (node.isShowingHintText) "" else node.text?.toString() ?: ""
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
         if (start > end) { val t = start; start = end; end = t }
@@ -103,7 +106,7 @@ class VoxAccessibilityService : AccessibilityService() {
         val node = focusedEditable() ?: return InjectResult.NO_TARGET
         if (node.isPassword) return InjectResult.SECURE_FIELD
         if (!node.isEditable) return InjectResult.NO_TARGET
-        val existing = node.text?.toString() ?: ""
+        val existing = if (node.isShowingHintText) "" else node.text?.toString() ?: ""
         if (sel.end > existing.length ||
             existing.substring(sel.start, sel.end) != sel.text) return InjectResult.NO_TARGET
         val combined = existing.substring(0, sel.start) + newText + existing.substring(sel.end)

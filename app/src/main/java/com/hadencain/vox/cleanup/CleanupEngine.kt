@@ -8,12 +8,21 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference
  *  prompt contracts: clean() degrades to raw text on failure; aiEdit() degrades to "". */
 class CleanupEngine(context: Context, modelPath: String) {
 
-    private val llm = LlmInference.createFromOptions(
-        context,
-        LlmInference.LlmInferenceOptions.builder()
+    private val llm = createLlm(context, modelPath)
+
+    private fun createLlm(context: Context, modelPath: String): LlmInference {
+        fun opts(backend: LlmInference.Backend) = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(1024)
-            .build())
+            .setPreferredBackend(backend)
+            .build()
+        return try {
+            LlmInference.createFromOptions(context, opts(LlmInference.Backend.GPU))
+        } catch (e: Exception) {
+            Log.w("Vox", "Gemma GPU backend failed, falling back to CPU", e)
+            LlmInference.createFromOptions(context, opts(LlmInference.Backend.CPU))
+        }
+    }
 
     fun clean(text: String, appContext: String?): String {
         if (text.isBlank()) return text
