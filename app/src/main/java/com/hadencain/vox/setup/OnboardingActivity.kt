@@ -17,6 +17,9 @@ class OnboardingActivity : AppCompatActivity() {
     private lateinit var rows: Map<String, TextView>
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var downloadIds = mutableMapOf<String, Long>()
+    private val dlFailed = mutableSetOf<String>()
+    private var started = false
+    private var ramBlocked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +40,7 @@ class OnboardingActivity : AppCompatActivity() {
         val mi = ActivityManager.MemoryInfo()
         getSystemService(ActivityManager::class.java).getMemoryInfo(mi)
         if (mi.totalMem < 6L * 1024 * 1024 * 1024) {
+            ramBlocked = true
             setContentView(TextView(this).apply {
                 text = "Vox needs a phone with at least 6GB of RAM to run its on-device " +
                     "speech models. This device has ${mi.totalMem / (1024 * 1024 * 1024)}GB."
@@ -45,28 +49,81 @@ class OnboardingActivity : AppCompatActivity() {
             return
         }
         // 3. kick off model downloads immediately (concurrent with 2/4/5 — spec)
-        if (!ModelDownloader.allPresent(this)) {
-            for (spec in ModelDownloader.MODELS) {
-                if (!java.io.File(ModelDownloader.modelsDir(this), spec.fileName).exists())
-                    downloadIds[spec.fileName] = ModelDownloader.enqueue(this, spec)
-            }
-            pollDownloads()
-        }
+        startMissingDownloads()
     }
 
-    override fun onResume() { super.onResume(); refresh() }
+    /** For every model missing from disk: adopt an in-flight download, finalize a
+     *  finished one, leave a failed one for retry-tap, or enqueue fresh. */
+    private fun startMissingDownloads() {
+        var anyPending = false
+        for (spec in ModelDownloader.MODELS) {
+            if (java.io.File(ModelDownloader.modelsDir(this), spec.fileName).exists()) continue
+            anyPending = true
+            val existingId = ModelDownloader.knownId(this, spec)
+            if (existingId == -1L) {
+                downloadIds[spec.fileName] = ModelDownloader.enqueue(this, spec)
+                continue
+            }
+            val (state, _) = ModelDownloader.status(this, existingId)
+            when (state) {
+                ModelDownloader.DlState.NONE -> {
+                    downloadIds[spec.fileName] = ModelDownloader.enqueue(this, spec)
+                }
+                ModelDownloader.DlState.RUNNING -> {
+                    downloadIds[spec.fileName] = existingId
+                }
+                ModelDownloader.DlState.SUCCESS -> {
+                    if (ModelDownloader.finalize(this, spec)) {
+                        ModelDownloader.forget(this, spec)
+                    } else {
+                        ModelDownloader.forget(this, spec)
+                        dlFailed.add(spec.fileName)
+                    }
+                }
+                ModelDownloader.DlState.FAILED -> {
+                    ModelDownloader.forget(this, spec)
+                    dlFailed.add(spec.fileName)
+                }
+            }
+        }
+        if (anyPending) pollDownloads()
+        refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!ramBlocked) refresh()
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
 
     private fun pollDownloads() {
         handler.postDelayed({
-            for ((name, id) in downloadIds) {
-                val (done, total) = ModelDownloader.progress(this, id)
-                if (total in 1..done) {
-                    ModelDownloader.MODELS.first { it.fileName == name }
-                        .let { ModelDownloader.finalize(this, it) }
+            if (isDestroyed || isFinishing) return@postDelayed
+            var anyRunning = false
+            for ((name, id) in downloadIds.toMap()) {
+                val spec = ModelDownloader.MODELS.first { it.fileName == name }
+                val (state, _) = ModelDownloader.status(this, id)
+                when (state) {
+                    ModelDownloader.DlState.SUCCESS -> {
+                        if (!ModelDownloader.finalize(this, spec)) dlFailed.add(name)
+                        ModelDownloader.forget(this, spec)
+                        downloadIds.remove(name)
+                    }
+                    ModelDownloader.DlState.FAILED -> {
+                        ModelDownloader.forget(this, spec)
+                        dlFailed.add(name)
+                        downloadIds.remove(name)
+                    }
+                    ModelDownloader.DlState.RUNNING -> anyRunning = true
+                    ModelDownloader.DlState.NONE -> downloadIds.remove(name)
                 }
             }
             refresh()
-            if (!ModelDownloader.allPresent(this)) pollDownloads()
+            if (anyRunning) pollDownloads()
         }, 1000)
     }
 
@@ -78,8 +135,25 @@ class OnboardingActivity : AppCompatActivity() {
         rows["Microphone"]!!.setOnClickListener {
             if (!mic) requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1)
         }
-        rows["Models"]!!.text = if (ModelDownloader.allPresent(this)) "✓ Models downloaded"
-            else "⇣ Downloading models over Wi-Fi (~740MB)…"
+        rows["Models"]!!.apply {
+            when {
+                ModelDownloader.allPresent(this@OnboardingActivity) -> {
+                    text = "✓ Models downloaded"
+                    setOnClickListener(null)
+                }
+                dlFailed.isNotEmpty() -> {
+                    text = "✗ Model download failed — tap to retry"
+                    setOnClickListener {
+                        dlFailed.clear()
+                        startMissingDownloads()
+                    }
+                }
+                else -> {
+                    text = "⇣ Downloading models over Wi-Fi (~740MB)…"
+                    setOnClickListener(null)
+                }
+            }
+        }
         val overlay = Settings.canDrawOverlays(this)
         rows["Overlay"]!!.text = if (overlay) "✓ Display over other apps"
             else "○ Display over other apps — tap to open settings"
@@ -98,11 +172,13 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun maybeStart() {
+        if (started) return
         val ready = Settings.canDrawOverlays(this) &&
             checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED &&
             ModelDownloader.allPresent(this)
         if (ready) {
+            started = true
             startForegroundService(Intent(this, VoxService::class.java))
             finish()
         } else refresh()
