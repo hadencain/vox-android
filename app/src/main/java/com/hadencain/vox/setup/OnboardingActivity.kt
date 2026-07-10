@@ -119,7 +119,11 @@ class OnboardingActivity : AppCompatActivity() {
                         downloadIds.remove(name)
                     }
                     ModelDownloader.DlState.RUNNING -> anyRunning = true
-                    ModelDownloader.DlState.NONE -> downloadIds.remove(name)
+                    ModelDownloader.DlState.NONE -> {
+                        ModelDownloader.forget(this, spec)
+                        dlFailed.add(name)
+                        downloadIds.remove(name)
+                    }
                 }
             }
             refresh()
