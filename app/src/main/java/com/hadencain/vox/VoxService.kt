@@ -70,7 +70,8 @@ class VoxService : Service() {
         val settings = VoxSettings.load(java.io.File(filesDir, "settings.json"))
         pipeline = Pipeline(this, settings)
         bubble = BubbleOverlay(this,
-            onTap = pipeline::onTap, onLongPress = pipeline::onLongPress)
+            onTap = pipeline::onTap, onLongPress = pipeline::onLongPress,
+            onCloseRequested = { stopVox() })
         bubble.onCaptionTap = pipeline::onCaptionTap
         initialized = true
         try {
@@ -92,6 +93,13 @@ class VoxService : Service() {
             return START_NOT_STICKY
         }
         return START_STICKY
+    }
+
+    /** Invoked when the bubble is dragged onto the close target. onDestroy already tears
+     *  down the pipeline + bubble. */
+    private fun stopVox() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onDestroy() {
