@@ -28,6 +28,8 @@ class BubbleOverlay(
     private val handler = Handler(Looper.getMainLooper())
     var onCaptionTap: (() -> Unit)? = null
 
+    @Volatile var currentState: BubbleState = BubbleState.IDLE; private set
+
     private val bubble = ImageView(context).apply {
         setBackgroundResource(R.drawable.bubble_bg)
     }
@@ -74,16 +76,19 @@ class BubbleOverlay(
         shown = false
     }
 
-    fun setState(state: BubbleState) = handler.post {
-        bubble.background.setTint(when (state) {
-            BubbleState.IDLE -> Color.parseColor("#3D5AFE")
-            BubbleState.WAKING -> Color.parseColor("#FFB300")
-            BubbleState.RECORDING -> Color.parseColor("#E53935")
-            BubbleState.RECORDING_RAW -> Color.parseColor("#8E24AA")
-            BubbleState.PROCESSING -> Color.parseColor("#00897B")
-            BubbleState.ERROR -> Color.parseColor("#616161")
-            BubbleState.DISABLED -> Color.parseColor("#424242")
-        })
+    fun setState(state: BubbleState) {
+        currentState = state
+        handler.post {
+            bubble.background.setTint(when (state) {
+                BubbleState.IDLE -> Color.parseColor("#3D5AFE")
+                BubbleState.WAKING -> Color.parseColor("#FFB300")
+                BubbleState.RECORDING -> Color.parseColor("#E53935")
+                BubbleState.RECORDING_RAW -> Color.parseColor("#8E24AA")
+                BubbleState.PROCESSING -> Color.parseColor("#00897B")
+                BubbleState.ERROR -> Color.parseColor("#616161")
+                BubbleState.DISABLED -> Color.parseColor("#424242")
+            })
+        }
     }
 
     fun setCaption(text: String?) = handler.post {

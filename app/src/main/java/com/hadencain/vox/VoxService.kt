@@ -25,7 +25,7 @@ class VoxService : Service() {
         override fun run() {
             if (VoxAccessibilityService.instance == null && pipelineIdle()) {
                 bubble.setState(BubbleState.DISABLED)
-            } else if (pipelineIdle()) {
+            } else if (pipelineIdle() && bubble.currentState == BubbleState.DISABLED) {
                 bubble.setState(BubbleState.IDLE)
             }
             handler.postDelayed(this, 5000)
