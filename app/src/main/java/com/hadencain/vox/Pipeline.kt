@@ -160,7 +160,12 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                     while (isActive && state == PipelineState.RECORDING) {
                         delay(1500)
                         if (!isActive || state != PipelineState.RECORDING) break
-                        val snap = partialsCapture.snapshot()
+                        // Cap each partial snapshot to the trailing 30s -- long takes would
+                        // otherwise re-transcribe an ever-growing buffer every 1.5s (thermal/
+                        // battery cost that only pays for a display-only caption). The FINAL
+                        // transcribe in handleStopTake still uses the full, uncapped buffer.
+                        val snap0 = partialsCapture.snapshot()
+                        val snap = if (snap0.size > 16000 * 30) snap0.copyOfRange(snap0.size - 16000 * 30, snap0.size) else snap0
                         if (snap.size < 16000) continue  // wait for >=1s of audio
                         // All native WhisperBridge calls must go through asrDispatcher --
                         // whisper_full is not reentrant on one context.
@@ -271,12 +276,17 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         unloadJob?.cancel()
         unloadJob = scope.launch(stateDispatcher) {
             delay(settings.modelIdleUnloadMs)
-            if (whisperHandle != 0L) {
-                withContext(asrDispatcher) { WhisperBridge.release(whisperHandle) }
-                whisperHandle = 0L
+            // Swap the fields to their cleared state BEFORE releasing, then release under
+            // NonCancellable. If cancellation raced us here (e.g. a take started right as
+            // the delay elapsed), the fields are already zeroed/nulled -- no other coroutine
+            // can observe a freed-but-nonzero handle, and shutdown() can't double-release
+            // something we're mid-release on.
+            val h = whisperHandle; whisperHandle = 0L
+            val c = cleanup; cleanup = null
+            withContext(NonCancellable) {
+                if (h != 0L) withContext(asrDispatcher) { WhisperBridge.release(h) }
+                c?.let { withContext(llmDispatcher) { it.close() } }
             }
-            withContext(llmDispatcher) { cleanup?.close() }
-            cleanup = null
             Log.i("Vox", "models unloaded after idle")
         }
     }
@@ -320,22 +330,29 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
 
     fun shutdown() {
         // Confine teardown to stateDispatcher so it serializes behind any in-flight take.
-        // runBlocking is a fresh scope — unaffected by scope.cancel(); bounded by take length.
-        runBlocking {
-            withContext(stateDispatcher) {
-                // If shutdown races a live take, stop the partials loop before releasing
-                // the whisper handle below -- otherwise a queued/in-flight partial could
-                // call WhisperBridge.transcribe with a handle that's about to be freed.
-                partialsJob?.cancelAndJoin(); partialsJob = null
-                capture?.stop(); capture = null
-                if (whisperHandle != 0L) {
-                    withContext(asrDispatcher) { WhisperBridge.release(whisperHandle) }
-                    whisperHandle = 0L
+        // runBlocking is a fresh scope — unaffected by scope.cancel(); bounded below by a
+        // hard timeout so a stuck native call can't turn process death into an ANR.
+        val completed = runBlocking {
+            withTimeoutOrNull(5_000) {
+                withContext(stateDispatcher) {
+                    // If shutdown races a live take, stop the partials loop before releasing
+                    // the whisper handle below -- otherwise a queued/in-flight partial could
+                    // call WhisperBridge.transcribe with a handle that's about to be freed.
+                    partialsJob?.cancelAndJoin(); partialsJob = null
+                    capture?.stop(); capture = null
+                    // Same swap-then-release-under-NonCancellable idiom as scheduleUnload:
+                    // zero the fields first so a timeout here can't leave a freed-but-nonzero
+                    // handle, and can't race scheduleUnload's own release of the same handle.
+                    val h = whisperHandle; whisperHandle = 0L
+                    val c = cleanup; cleanup = null
+                    withContext(NonCancellable) {
+                        if (h != 0L) withContext(asrDispatcher) { WhisperBridge.release(h) }
+                        c?.let { withContext(llmDispatcher) { it.close() } }
+                    }
                 }
-                cleanup?.let { c -> withContext(llmDispatcher) { c.close() } }
-                cleanup = null
             }
         }
+        if (completed == null) Log.w("Vox", "teardown timed out; leaking native handles to avoid ANR")
         scope.cancel()
         stateDispatcher.close(); asrDispatcher.close(); llmDispatcher.close()
     }

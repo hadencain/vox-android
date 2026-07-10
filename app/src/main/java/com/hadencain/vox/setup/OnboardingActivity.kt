@@ -36,14 +36,17 @@ class OnboardingActivity : AppCompatActivity() {
         })
         setContentView(root)
 
-        // 1. RAM gate — hard stop below floor
+        // 1. RAM gate — hard stop below floor. Real 6GB-marketed devices report totalMem
+        // around 5.5-5.7GiB (the OS/firmware reserve a slice before ActivityManager ever
+        // sees it), so a literal `6L * 1024 * 1024 * 1024` floor excludes the exact devices
+        // this gate is meant to admit. Use a measured floor instead of the marketing number.
         val mi = ActivityManager.MemoryInfo()
         getSystemService(ActivityManager::class.java).getMemoryInfo(mi)
-        if (mi.totalMem < 6L * 1024 * 1024 * 1024) {
+        if (mi.totalMem < 5_300_000_000L) {
             ramBlocked = true
             setContentView(TextView(this).apply {
                 text = "Vox needs a phone with at least 6GB of RAM to run its on-device " +
-                    "speech models. This device has ${mi.totalMem / (1024 * 1024 * 1024)}GB."
+                    "speech models. This device has ${"%.1fGB".format(mi.totalMem / 1e9)}."
                 textSize = 18f; setPadding(48, 96, 48, 48)
             })
             return
@@ -137,7 +140,12 @@ class OnboardingActivity : AppCompatActivity() {
             PackageManager.PERMISSION_GRANTED
         rows["Microphone"]!!.text = if (mic) "✓ Microphone" else "○ Microphone — tap to grant"
         rows["Microphone"]!!.setOnClickListener {
-            if (!mic) requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), 1)
+            // Request POST_NOTIFICATIONS alongside RECORD_AUDIO -- Android 13+ requires it to
+            // show the foreground-service notification; a no-op on API <33 where it doesn't
+            // exist as a runtime permission.
+            if (!mic) requestPermissions(arrayOf(
+                android.Manifest.permission.RECORD_AUDIO,
+                android.Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         rows["Models"]!!.apply {
             when {

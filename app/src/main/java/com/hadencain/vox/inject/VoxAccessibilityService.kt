@@ -74,8 +74,13 @@ class VoxAccessibilityService : AccessibilityService() {
         return try {
             node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
         } finally {
+            // `saved` being null doesn't mean the clipboard was empty -- clipboard access can
+            // be denied/return null for reasons unrelated to actual content (e.g. the reading
+            // app not being default IME/in focus on some OEM builds). Only restore when we
+            // actually captured something; otherwise leave the vox text in place rather than
+            // risk wiping a real clipboard we never got to read. Android 12+ already toasts
+            // both the read and the write, so the user sees this happen either way.
             if (saved != null) cm.setPrimaryClip(saved)
-            else cm.clearPrimaryClip()
         }
     }
 
