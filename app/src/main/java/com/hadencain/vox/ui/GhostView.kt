@@ -44,6 +44,7 @@ class GhostView(context: Context) : View(context) {
         color = Color.argb(210, 255, 255, 255); isFakeBoldText = true
     }
     private val bodyPath = Path()
+    private val scratchPath = Path()
 
     private val frameTick = object : Runnable {
         override fun run() {
@@ -130,17 +131,17 @@ class GhostView(context: Context) : View(context) {
         val y = 48f * s
         when (e.eyes) {
             EyeStyle.CLOSED -> {
-                canvas.drawArcEye(38f*s, y, 50f*s, s, strokeWhite)
-                canvas.drawArcEye(62f*s, y, 74f*s, s, strokeWhite)
+                drawArcEye(canvas, 38f*s, y, 50f*s, s, strokeWhite)
+                drawArcEye(canvas, 62f*s, y, 74f*s, s, strokeWhite)
             }
             EyeStyle.X -> { drawX(canvas, 44f*s, y, 5f*s); drawX(canvas, 68f*s, y, 5f*s) }
             EyeStyle.NORMAL, EyeStyle.WIDE -> {
                 val ry = (if (e.eyes == EyeStyle.WIDE) 11f else 9f) * s * blinkScale(now)
                 val pr = (if (e.eyes == EyeStyle.WIDE) 4f else 3.2f) * s
-                for (cx in floatArrayOf(44f*s, 68f*s)) {
-                    canvas.drawOval(cx - 6.5f*s, y - ry, cx + 6.5f*s, y + ry, whitePaint)
-                    if (ry > 3f * s) canvas.drawCircle(cx + 1.5f*s, y + 2f*s, pr, darkPaint)
-                }
+                canvas.drawOval(44f*s - 6.5f*s, y - ry, 44f*s + 6.5f*s, y + ry, whitePaint)
+                if (ry > 3f * s) canvas.drawCircle(44f*s + 1.5f*s, y + 2f*s, pr, darkPaint)
+                canvas.drawOval(68f*s - 6.5f*s, y - ry, 68f*s + 6.5f*s, y + ry, whitePaint)
+                if (ry > 3f * s) canvas.drawCircle(68f*s + 1.5f*s, y + 2f*s, pr, darkPaint)
             }
         }
     }
@@ -165,8 +166,10 @@ class GhostView(context: Context) : View(context) {
 
     private fun drawMouth(canvas: Canvas, s: Float, now: Long, dt: Long, e: GhostExpression) {
         if (e.mouth == MouthStyle.FROWN) {
-            val p = Path().apply { moveTo(48f*s, 70f*s); quadTo(56f*s, 63f*s, 64f*s, 70f*s) }
-            canvas.drawPath(p, strokeDark)
+            scratchPath.rewind()
+            scratchPath.moveTo(48f*s, 70f*s)
+            scratchPath.quadTo(56f*s, 63f*s, 64f*s, 70f*s)
+            canvas.drawPath(scratchPath, strokeDark)
             return
         }
         val open = mouthDriver.openness(now, dt, e.mouth == MouthStyle.TRACK_LEVEL, e.mouthFloor)
@@ -183,10 +186,12 @@ class GhostView(context: Context) : View(context) {
             ch(Color.green(from), Color.green(to)),
             ch(Color.blue(from), Color.blue(to)))
     }
-}
 
-/** Closed-eye arc: gentle downward curve between x0 and x1 at height y. */
-private fun Canvas.drawArcEye(x0: Float, y: Float, x1: Float, s: Float, paint: Paint) {
-    val p = Path().apply { moveTo(x0, y); quadTo((x0 + x1) / 2f, y + 5f * s, x1, y) }
-    drawPath(p, paint)
+    /** Closed-eye arc: gentle downward curve between x0 and x1 at height y. */
+    private fun drawArcEye(canvas: Canvas, x0: Float, y: Float, x1: Float, s: Float, paint: Paint) {
+        scratchPath.rewind()
+        scratchPath.moveTo(x0, y)
+        scratchPath.quadTo((x0 + x1) / 2f, y + 5f * s, x1, y)
+        canvas.drawPath(scratchPath, paint)
+    }
 }
