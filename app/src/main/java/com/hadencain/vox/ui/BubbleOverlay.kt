@@ -10,7 +10,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.ImageView
 import android.widget.TextView
 import com.hadencain.vox.R
 import kotlin.math.abs
@@ -31,9 +30,7 @@ class BubbleOverlay(
 
     @Volatile var currentState: BubbleState = BubbleState.IDLE; private set
 
-    private val bubble = ImageView(context).apply {
-        setBackgroundResource(R.drawable.bubble_bg)
-    }
+    private val bubble = GhostView(context)
     private val caption = TextView(context).apply {
         setBackgroundColor(Color.argb(200, 20, 20, 20))
         setTextColor(Color.WHITE)
@@ -106,17 +103,7 @@ class BubbleOverlay(
 
     fun setState(state: BubbleState) {
         currentState = state
-        handler.post {
-            bubble.background.setTint(when (state) {
-                BubbleState.IDLE -> Color.parseColor("#3D5AFE")
-                BubbleState.WAKING -> Color.parseColor("#FFB300")
-                BubbleState.RECORDING -> Color.parseColor("#E53935")
-                BubbleState.RECORDING_RAW -> Color.parseColor("#8E24AA")
-                BubbleState.PROCESSING -> Color.parseColor("#00897B")
-                BubbleState.ERROR -> Color.parseColor("#616161")
-                BubbleState.DISABLED -> Color.parseColor("#424242")
-            })
-        }
+        handler.post { bubble.setGhostState(state) }
     }
 
     fun setCaption(text: String?) = handler.post {
@@ -127,6 +114,10 @@ class BubbleOverlay(
         if (shown) wm.updateViewLayout(caption, captionLp)
         caption.visibility = View.VISIBLE
     }
+
+    /** Mic level passthrough -- called from the audio capture thread; GhostView handles
+     *  cross-thread safety internally. */
+    fun setAudioLevel(rms: Float) = bubble.setAudioLevel(rms)
 
     private inner class DragTouchListener : View.OnTouchListener {
         private var startX = 0; private var startY = 0
