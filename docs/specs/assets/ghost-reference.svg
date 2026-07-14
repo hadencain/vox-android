@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112" width="112" height="112">
+  <!-- Vox ghost — canonical reference geometry (IDLE state, mouth slightly open).
+       Body: dome top, sides taper, asymmetric 3-wave hem (NOT uniform scallops, NOT a two-point flick).
+       Face: always present — two tall oval eyes + mouth. Mouth is the voice metaphor and must never be removed.
+       Outline: 4 units white at 90% opacity, always drawn regardless of body tint. -->
+  <g>
+    <!-- body: state-tinted (idle #3D5AFE shown), white outline -->
+    <path d="M56 14
+             C 34 14, 22 30, 22 52
+             L 22 82
+             Q 27 74, 33 82
+             Q 40 92, 48 83
+             Q 56 74, 65 84
+             Q 74 93, 79 83
+             Q 84 74, 90 80
+             L 90 52
+             C 90 30, 78 14, 56 14 Z"
+          fill="#3D5AFE" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="4" stroke-linejoin="round"/>
+    <!-- eyes: tall rounded ovals, whites with dark pupils (never solid cutout holes) -->
+    <ellipse cx="44" cy="48" rx="6.5" ry="9" fill="#FFFFFF"/>
+    <ellipse cx="68" cy="48" rx="6.5" ry="9" fill="#FFFFFF"/>
+    <circle cx="45.5" cy="50" r="3.2" fill="#1A1A2E"/>
+    <circle cx="69.5" cy="50" r="3.2" fill="#1A1A2E"/>
+    <!-- mouth: rounded, openness animates 0..1 with mic RMS while recording -->
+    <ellipse cx="56" cy="66" rx="7" ry="4.5" fill="#1A1A2E"/>
+    <path d="M50 64.5 Q 56 62, 62 64.5" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1.5" fill="none"/>
+  </g>
+</svg>
