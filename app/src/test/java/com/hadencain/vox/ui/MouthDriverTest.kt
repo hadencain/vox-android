@@ -39,6 +39,17 @@ class MouthDriverTest {
         assertTrue("never below floor-ish", late.min() > 0.02f)
     }
 
+    @Test fun `fallback recovers to live tracking once a level event arrives`() {
+        val d = MouthDriver(fallbackAfterMs = 600)
+        // No onLevel ever called; drive long enough (1s) for the canned flap to be active.
+        var t = 5000L
+        repeat(62) { t += 16; d.openness(t, 16, tracking = true, floor = 0.1f) }
+        // Now a loud level event arrives at the current timestamp; tracking should resume.
+        d.onLevel(0.08f, t)
+        val v = settle(d, t, 30, tracking = true, floor = 0.1f)
+        assertTrue("expected recovery to wide open, got $v", v > 0.7f)
+    }
+
     @Test fun `not tracking returns the floor`() {
         val d = MouthDriver()
         d.onLevel(0.08f, 1000)  // stale loud level must be ignored

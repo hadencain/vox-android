@@ -70,7 +70,11 @@ class GhostView(context: Context) : View(context) {
 
     private fun updateRunning() {
         val shouldRun = isAttachedToWindow && visibility == VISIBLE
-        if (shouldRun && !running) { running = true; postOnAnimation(frameTick) }
+        if (shouldRun && !running) {
+            running = true
+            removeCallbacks(frameTick)  // avoid double-scheduling on rapid off->on toggles
+            postOnAnimation(frameTick)
+        }
         else if (!shouldRun) running = false
     }
 

@@ -65,7 +65,8 @@ class AudioCapture(
                 var sum = 0.0
                 for (i in 0 until n) sum += chunk[i] * chunk[i]
                 val rms = sqrt(sum / n).toFloat()
-                onLevel?.invoke(rms)
+                // Level tap is display-only; an exception here must not kill the capture thread.
+                try { onLevel?.invoke(rms) } catch (_: Exception) {}
                 if (detector.feedRms(rms, System.currentTimeMillis())) onSilenceTimeout()
             }
         }.also { it.start() }
