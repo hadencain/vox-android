@@ -15,10 +15,13 @@ class SilenceDetector(private val timeoutMs: Long, sampleRate: Int) {
     private var fired = false
 
     fun feed(chunk: FloatArray, nowMs: Long): Boolean {
-        if (fired) return false
         var sum = 0.0
         for (s in chunk) sum += s * s
-        val rms = sqrt(sum / chunk.size).toFloat()
+        return feedRms(sqrt(sum / chunk.size).toFloat(), nowMs)
+    }
+
+    fun feedRms(rms: Float, nowMs: Long): Boolean {
+        if (fired) return false
         if (rms >= threshold) { heardSpeech = true; lastSpeechMs = nowMs }
         if (heardSpeech && nowMs - lastSpeechMs >= timeoutMs) { fired = true; return true }
         return false
@@ -28,6 +31,7 @@ class SilenceDetector(private val timeoutMs: Long, sampleRate: Int) {
 class AudioCapture(
     private val onSilenceTimeout: () -> Unit,
     private val silenceTimeoutMs: Long,
+    private val onLevel: ((Float) -> Unit)? = null,
 ) {
     private val sampleRate = 16000
     private var record: AudioRecord? = null
@@ -58,7 +62,11 @@ class AudioCapture(
                 val n = record?.read(chunk, 0, chunk.size, AudioRecord.READ_BLOCKING) ?: break
                 if (n <= 0) continue
                 synchronized(buffer) { for (i in 0 until n) buffer.add(chunk[i]) }
-                if (detector.feed(chunk.copyOf(n), System.currentTimeMillis())) onSilenceTimeout()
+                var sum = 0.0
+                for (i in 0 until n) sum += chunk[i] * chunk[i]
+                val rms = sqrt(sum / n).toFloat()
+                onLevel?.invoke(rms)
+                if (detector.feedRms(rms, System.currentTimeMillis())) onSilenceTimeout()
             }
         }.also { it.start() }
     }

@@ -27,4 +27,14 @@ class SilenceDetectorTest {
         assertFalse(d.feed(quiet, 0))
         assertFalse(d.feed(quiet, 10_000))
     }
+    @Test fun `feedRms behaves like feed with the equivalent rms`() {
+        val a = SilenceDetector(timeoutMs = 1000, sampleRate = 16000)
+        val b = SilenceDetector(timeoutMs = 1000, sampleRate = 16000)
+        val loud = FloatArray(1600) { 0.1f }   // rms 0.1 > threshold
+        val quiet = FloatArray(1600) { 0.001f } // rms 0.001 < threshold
+        assertEquals(a.feed(loud, 0), b.feedRms(0.1f, 0))
+        assertEquals(a.feed(quiet, 500), b.feedRms(0.001f, 500))
+        assertEquals(a.feed(quiet, 1600), b.feedRms(0.001f, 1600))  // both fire here
+        assertEquals(a.feed(loud, 1700), b.feedRms(0.1f, 1700))     // both stay fired=false
+    }
 }

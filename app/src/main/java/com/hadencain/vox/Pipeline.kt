@@ -141,6 +141,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 val newCapture = AudioCapture(
                     onSilenceTimeout = { scope.launch(stateDispatcher) { handleStopTake() } },
                     silenceTimeoutMs = settings.silenceTimeoutMs,
+                    onLevel = { service.bubble.setAudioLevel(it) },
                 )
                 newCapture.start()
                 capture = newCapture
