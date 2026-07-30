@@ -21,6 +21,8 @@ data class VoxSettings(
     val historyMax: Int = 500,
     // voice commands
     val enableCommands: Boolean = true,
+    // feedback
+    val enableHaptics: Boolean = true,
     // capture
     val silenceTimeoutMs: Long = 4000,
     // model lifecycle

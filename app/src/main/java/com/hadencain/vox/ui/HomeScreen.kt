@@ -278,6 +278,11 @@ internal fun BehaviorCard(settings: VoxSettings, onUpdate: (VoxSettings) -> Unit
             checked = settings.saveHistory,
             onCheckedChange = { onUpdate(settings.copy(saveHistory = it)) },
         )
+        SettingSwitchRow(
+            label = "Vibrate on start / stop / done / error",
+            checked = settings.enableHaptics,
+            onCheckedChange = { onUpdate(settings.copy(enableHaptics = it)) },
+        )
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(

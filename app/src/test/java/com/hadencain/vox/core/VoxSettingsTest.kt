@@ -12,6 +12,7 @@ class VoxSettingsTest {
     @Test fun `defaults load when file missing`() {
         val s = VoxSettings.load(File(tmp.root, "nope.json"))
         assertTrue(s.enableCleanup)
+        assertTrue(s.enableHaptics)
         assertEquals("en", s.language)
     }
     @Test fun `round-trips through disk`() {

@@ -147,6 +147,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 capture = newCapture
                 state = PipelineState.RECORDING
                 service.bubble.setState(BubbleState.RECORDING)
+                if (settings.enableHaptics) Haptics.start(service)
                 service.bubble.setCaption(takeStartCaption())
                 // Capture the confined fields we need ONCE, here on stateDispatcher, into
                 // local vals passed into the loop below -- the loop itself runs off
@@ -188,6 +189,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         if (state != PipelineState.RECORDING) return
         state = PipelineState.PROCESSING
         service.bubble.setState(BubbleState.PROCESSING)
+        if (settings.enableHaptics) Haptics.stop(service)
         scope.launch(stateDispatcher) {
             try {
                 // Cancel the partials loop before the final transcribe. The serial
@@ -225,6 +227,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                     }
                     if (settings.saveHistory) history.append(HistoryEntry(
                         System.currentTimeMillis(), raw, editResult, targetPackage, "aiedit"))
+                    if (settings.enableHaptics) Haptics.done(service)
                     finishIdle(); return@launch
                 }
                 val appCtx = if (settings.enableContext) ContextMap.category(targetPackage) else null
@@ -245,6 +248,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 if (settings.saveHistory) history.append(HistoryEntry(
                     System.currentTimeMillis(), raw, final, targetPackage,
                     if (rawMode) "raw" else "dictate"))
+                if (settings.enableHaptics) Haptics.done(service)
                 finishIdle()
             } catch (e: Exception) {
                 Log.e("Vox", "take failed", e); fail(e.message ?: "error")
@@ -308,6 +312,7 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
         aiEditSelection = null
         service.bubble.setState(BubbleState.ERROR)
         service.bubble.setCaption("⚠ $msg")
+        if (settings.enableHaptics) Haptics.error(service)
         toast("Vox: $msg")
         scheduleUnload()
         // Some OEM builds let the user suppress Vox's toasts entirely, which made failures
