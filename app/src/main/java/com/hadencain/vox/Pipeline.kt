@@ -119,7 +119,10 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
     }
 
     private fun handleCaptionTap() {
-        if (state != PipelineState.RECORDING) return
+        // Raw and AI-edit are mutually exclusive: the aiedit history write in handleStopTake
+        // is never redacted, so letting raw mode toggle on during an AI-edit take would paint
+        // a verbatim/privacy promise (RECORDING_RAW) the pipeline doesn't honor.
+        if (state != PipelineState.RECORDING || aiEditMode) return
         rawMode = !rawMode
         service.bubble.setState(if (rawMode) BubbleState.RECORDING_RAW else BubbleState.RECORDING)
     }
@@ -227,7 +230,9 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                     }
                     if (settings.saveHistory) history.append(HistoryEntry(
                         System.currentTimeMillis(), raw, editResult, targetPackage, "aiedit"))
-                    if (settings.enableHaptics) Haptics.done(service)
+                    // Only tick on a real injection -- the fallback (clipboard copy) already
+                    // has its own toast, and a success haptic there would misreport failure.
+                    if (settings.enableHaptics && outcome == InjectResult.INJECTED) Haptics.done(service)
                     finishIdle(); return@launch
                 }
                 val appCtx = if (settings.enableContext) ContextMap.category(targetPackage) else null
@@ -248,7 +253,9 @@ class Pipeline(private val service: VoxService, private val settings: VoxSetting
                 if (settings.saveHistory) history.append(HistoryEntry(
                     System.currentTimeMillis(), raw, final, targetPackage,
                     if (rawMode) "raw" else "dictate"))
-                if (settings.enableHaptics) Haptics.done(service)
+                // Only tick on a real injection -- the fallback (clipboard copy) already has
+                // its own toast, and a success haptic there would misreport failure.
+                if (settings.enableHaptics && result == InjectResult.INJECTED) Haptics.done(service)
                 finishIdle()
             } catch (e: Exception) {
                 Log.e("Vox", "take failed", e); fail(e.message ?: "error")

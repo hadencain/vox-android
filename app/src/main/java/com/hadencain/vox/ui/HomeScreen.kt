@@ -49,6 +49,8 @@ import com.hadencain.vox.core.History
 import com.hadencain.vox.core.HistoryEntry
 import com.hadencain.vox.core.Mine
 import com.hadencain.vox.core.VoxSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 // ---- status card --------------------------------------------------------
@@ -460,11 +462,18 @@ internal fun HistoryCard(ctx: Context, resumeTick: Int, historyMax: Int) {
 internal fun SuggestionsCard(ctx: Context, resumeTick: Int, settings: VoxSettings, onUpdate: (VoxSettings) -> Unit) {
     val historyFile = remember { File(ctx.filesDir, "history.jsonl") }
     var suggestions by remember { mutableStateOf(Mine.Suggestions(emptyList(), emptyList())) }
-    fun refresh() {
-        val entries = History(historyFile, settings.historyMax).readAll()
-        suggestions = Mine.suggest(entries, settings.vocab, settings.corrections)
+    LaunchedEffect(resumeTick, settings.vocab, settings.corrections) {
+        // File I/O + JSON parse + the O(n*m) LCS alignment in Mine.suggest are too heavy for
+        // the main thread on every resume/Add tap -- push the work to IO and only touch
+        // Compose state with the result.
+        suggestions = withContext(Dispatchers.IO) {
+            // aiedit rows pair a spoken instruction with unrelated LLM output; aligning them
+            // as raw->cleaned produces accidental "corrections" that would then get applied
+            // to every future dictation (Dictionary.applyCorrections is global, word-boundary).
+            val entries = History(historyFile, settings.historyMax).readAll().filter { it.mode != "aiedit" }
+            Mine.suggest(entries, settings.vocab, settings.corrections)
+        }
     }
-    LaunchedEffect(resumeTick, settings.vocab, settings.corrections) { refresh() }
 
     if (suggestions.corrections.isEmpty() && suggestions.biasTerms.isEmpty()) return
 
