@@ -27,4 +27,19 @@ class HistoryTest {
         h.append(entry(1))
         assertEquals(1, h.readAll().size)
     }
+    @Test fun `redacts raw-mode entries before writing`() {
+        val h = History(File(tmp.root, "h.jsonl"), maxEntries = 10)
+        h.append(HistoryEntry(1L, "my password is hunter2", "my password is hunter2", null, "raw"))
+        val stored = h.readAll().single()
+        assertEquals(History.REDACTED, stored.raw)
+        assertEquals(History.REDACTED, stored.cleaned)
+    }
+    @Test fun `does not redact dictate or aiedit entries`() {
+        val h = History(File(tmp.root, "h.jsonl"), maxEntries = 10)
+        h.append(entry(1))
+        h.append(HistoryEntry(2L, "raw text", "cleaned text", null, "aiedit"))
+        val all = h.readAll()
+        assertEquals("clean 1", all[0].cleaned)
+        assertEquals("cleaned text", all[1].cleaned)
+    }
 }

@@ -20,7 +20,11 @@ class History(private val file: File, private val maxEntries: Int) {
 
     @Synchronized
     fun append(entry: HistoryEntry) {
-        val all = readAll() + entry
+        // Raw/verbatim takes exist for passwords and exact quotes (see project CLAUDE.md) --
+        // persisting that text to plaintext history would be the one place this local tool
+        // leaks secrets. Port of desktop history.py's redact=True path.
+        val toWrite = if (entry.mode == "raw") entry.copy(raw = REDACTED, cleaned = REDACTED) else entry
+        val all = readAll() + toWrite
         val kept = all.takeLast(maxEntries)
         file.parentFile?.mkdirs()
         file.writeText(kept.joinToString("\n") { json.encodeToString(it) } + "\n")
@@ -33,5 +37,9 @@ class History(private val file: File, private val maxEntries: Int) {
             try { if (line.isBlank()) null else json.decodeFromString<HistoryEntry>(line) }
             catch (_: Exception) { null }
         }
+    }
+
+    companion object {
+        const val REDACTED = "[verbatim — redacted]"
     }
 }
