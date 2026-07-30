@@ -52,6 +52,7 @@ import com.hadencain.vox.ui.DictionaryCard
 import com.hadencain.vox.ui.HistoryCard
 import com.hadencain.vox.ui.SetupCard
 import com.hadencain.vox.ui.StatusCard
+import com.hadencain.vox.ui.SuggestionsCard
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -359,6 +360,7 @@ private fun HomeScreen() {
         CleanupCard(settings) { updateSettings(it) }
         BehaviorCard(settings) { updateSettings(it) }
         DictionaryCard(settings) { updateSettings(it) }
+        if (showHistory) SuggestionsCard(ctx, resumeTick, settings) { updateSettings(it) }
         if (showHistory) HistoryCard(ctx, resumeTick, settings.historyMax)
 
         FooterSection()

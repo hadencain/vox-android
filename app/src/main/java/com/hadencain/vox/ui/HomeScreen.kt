@@ -47,6 +47,7 @@ import com.hadencain.vox.VoxGreen
 import com.hadencain.vox.VoxStopped
 import com.hadencain.vox.core.History
 import com.hadencain.vox.core.HistoryEntry
+import com.hadencain.vox.core.Mine
 import com.hadencain.vox.core.VoxSettings
 import java.io.File
 
@@ -451,6 +452,51 @@ internal fun HistoryCard(ctx: Context, resumeTick: Int, historyMax: Int) {
                 historyFile.delete()
                 refresh()
             }) { Text("Clear history") }
+        }
+    }
+}
+
+@Composable
+internal fun SuggestionsCard(ctx: Context, resumeTick: Int, settings: VoxSettings, onUpdate: (VoxSettings) -> Unit) {
+    val historyFile = remember { File(ctx.filesDir, "history.jsonl") }
+    var suggestions by remember { mutableStateOf(Mine.Suggestions(emptyList(), emptyList())) }
+    fun refresh() {
+        val entries = History(historyFile, settings.historyMax).readAll()
+        suggestions = Mine.suggest(entries, settings.vocab, settings.corrections)
+    }
+    LaunchedEffect(resumeTick, settings.vocab, settings.corrections) { refresh() }
+
+    if (suggestions.corrections.isEmpty() && suggestions.biasTerms.isEmpty()) return
+
+    SettingsCard(title = "Suggestions") {
+        Text(
+            "Mined from your dictation history — add the ones that look right",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        suggestions.corrections.forEach { c ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "${c.heard} → ${c.canonical} (${c.count}×)",
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                TextButton(onClick = { onUpdate(settings.copy(corrections = settings.corrections + (c.heard to c.canonical))) }) {
+                    Text("Add")
+                }
+            }
+        }
+        suggestions.biasTerms.forEach { t ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "${t.term} (${t.count}×)",
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                TextButton(onClick = { onUpdate(settings.copy(vocab = settings.vocab + t.term)) }) {
+                    Text("Add")
+                }
+            }
         }
     }
 }
