@@ -1,29 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The Vox CRT (shared brand with desktop Vox — see src/vox/tools/make-icon.py).
+     Same block geometry and palette, scaled so the chassis diagonal fits the
+     adaptive-icon safe zone (66dp circle). Idle pose: dark glass, ball mid-drift. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- mic capsule -->
+    <!-- body rows + lower step -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M47,41 A7,7 0 0 1 61,41 L61,47 A7,7 0 0 1 47,47 Z" />
-    <!-- mic stand arc -->
+        android:fillColor="#6b4a35"
+        android:pathData="M30,37.33 h48 v31.06 h-48 z M31.13,68.39 h45.74 v2.82 h-45.74 z" />
+    <!-- rounded bottom, screen recess, chin button -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M43,56 A11,11 0 0 0 65,56" />
-    <!-- base stem -->
+        android:fillColor="#553a29"
+        android:pathData="M32.82,70.65 h42.35 v2.82 h-42.35 z M33.11,39.03 h38.96 v26.26 h-38.96 z M37.34,66.7 h4.24 v4.24 h-4.24 z" />
+    <!-- glass -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M54,67 L54,72" />
-    <!-- base foot -->
+        android:fillColor="#10141f"
+        android:pathData="M34.24,40.16 h36.71 v24 h-36.71 z" />
+    <!-- rounded top + button highlight -->
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M47,72 L61,72" />
+        android:fillColor="#7d5843"
+        android:pathData="M32.82,34.51 h42.35 v2.82 h-42.35 z M38.33,67.69 h2.26 v2.26 h-2.26 z" />
+    <!-- the ball, mid-drift -->
+    <path
+        android:fillColor="#f5efdf"
+        android:pathData="M50.61,49.47 h3.95 v3.95 h-3.95 z" />
 </vector>

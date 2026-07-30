@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: CRT silhouette with the screen punched out (evenOdd),
+     ball floating in the hole. The system supplies the tint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M30,34.51 h48 v38.96 h-48 z M34.24,40.16 h36.71 v24 h-36.71 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50.61,49.47 h3.95 v3.95 h-3.95 z" />
+</vector>

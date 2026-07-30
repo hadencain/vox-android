@@ -1,3 +1,5 @@
 <resources>
-    <color name="ic_launcher_background">#3D5AFE</color>
+    <!-- Warm dark backdrop for the CRT chassis (desktop icon floats on transparency;
+         adaptive icons need full bleed). Keeps the walnut/cream hardware palette. -->
+    <color name="ic_launcher_background">#1A1512</color>
 </resources>
