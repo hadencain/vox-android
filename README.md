@@ -55,6 +55,10 @@ floating bubble → AudioRecord (16 kHz) → whisper.cpp (JNI) → Gemma cleanup
 The pipeline is a single-threaded state machine (IDLE → RECORDING → PROCESSING);
 models lazy-load on first take and unload after idle timeout to give memory back.
 
+## License
+
+MIT — see [LICENSE](LICENSE). whisper.cpp (vendored under `third_party/`) is MIT-licensed by its own authors.
+
 ## Keywords
 
 Android dictation app · offline speech to text · on-device AI · voice typing ·
