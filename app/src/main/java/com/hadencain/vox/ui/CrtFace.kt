@@ -10,7 +10,12 @@ data class CrtExpression(
     val lamp: LampStyle,
     val dim: Float = 1f,
     val raw: Boolean = false,
-)
+) {
+    /** Whether anything on the face moves — static states stop the frame loop entirely. */
+    val animates: Boolean
+        get() = screen != ScreenStyle.BLANK && screen != ScreenStyle.FLATLINE ||
+                lamp == LampStyle.RED_BLINK || lamp == LampStyle.AMBER_BLINK
+}
 
 /** Shared palette + screen geometry, copied from desktop status_widget.py. 24-block grid.
  *  0x literals, not Color.parseColor — JVM unit tests can't call android.jar. */
@@ -39,7 +44,7 @@ object CrtExpressions {
         BubbleState.WAKING        -> CrtExpression(ScreenStyle.SWEEP, LampStyle.AMBER_BLINK, dim = 0.7f)
         BubbleState.RECORDING     -> CrtExpression(ScreenStyle.RIDE_LEVEL, LampStyle.RED_BLINK)
         BubbleState.RECORDING_RAW -> CrtExpression(ScreenStyle.RIDE_LEVEL, LampStyle.RED_BLINK, raw = true)
-        BubbleState.PROCESSING    -> CrtExpression(ScreenStyle.ORBIT, LampStyle.OFF)
+        BubbleState.PROCESSING    -> CrtExpression(ScreenStyle.ORBIT, LampStyle.AMBER_BLINK)
         BubbleState.ERROR         -> CrtExpression(ScreenStyle.FLATLINE, LampStyle.RED_SOLID)
         BubbleState.DISABLED      -> CrtExpression(ScreenStyle.BLANK, LampStyle.AMBER_DIM, dim = 0.55f)
     }

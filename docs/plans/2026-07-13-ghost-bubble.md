@@ -1,5 +1,7 @@
 # Ghost Bubble Implementation Plan
 
+> **SUPERSEDED 2026-07-30:** the ghost was replaced by the Vox CRT character — see docs/plans/2026-07-30-crt-bubble.md. Kept for history; GhostView/GhostFace/MouthDriver no longer exist.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the flat tinted-oval overlay bubble with a procedural animated ghost character whose mouth tracks live mic amplitude while recording.

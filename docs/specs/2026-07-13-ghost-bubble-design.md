@@ -1,5 +1,7 @@
 # Vox Ghost Bubble — Design Spec
 
+> **SUPERSEDED 2026-07-30:** the ghost was replaced by the Vox CRT character — see docs/plans/2026-07-30-crt-bubble.md. Kept for history; GhostView/GhostFace/MouthDriver no longer exist.
+
 **Date:** 2026-07-13
 **Status:** Approved (design conversation 2026-07-13)
 **Replaces:** the flat tinted-oval bubble (`bubble_bg.xml` + `ImageView` in `BubbleOverlay.kt`)

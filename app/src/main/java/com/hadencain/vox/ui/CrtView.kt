@@ -35,6 +35,8 @@ class CrtView(context: Context) : View(context) {
 
     fun setCrtState(state: BubbleState) {
         expression = CrtExpressions.forState(state)
+        if (expression.screen != ScreenStyle.RIDE_LEVEL) ball.reset()
+        updateRunning()
         invalidate()
     }
 
@@ -48,7 +50,7 @@ class CrtView(context: Context) : View(context) {
     }
 
     private fun updateRunning() {
-        val shouldRun = isAttachedToWindow && visibility == VISIBLE
+        val shouldRun = isAttachedToWindow && visibility == VISIBLE && expression.animates
         if (shouldRun && !running) {
             running = true
             removeCallbacks(frameTick)  // avoid double-scheduling on rapid off->on toggles
@@ -104,11 +106,12 @@ class CrtView(context: Context) : View(context) {
         when (e.screen) {
             ScreenStyle.RIDE_LEVEL -> {
                 val squash = if (ball.y > CrtFace.FLOOR - 0.4f) 0.45f else 0f
-                px(canvas, b, ball.x - .7f, ball.y - .5f + squash, CrtFace.BALL,
+                val ballColor = if (e.raw) CrtFace.AMBER else CrtFace.BALL
+                px(canvas, b, ball.x - .7f, ball.y - .5f + squash, ballColor,
                    1.4f + squash, 1f - squash * .5f)
                 for (i in 1..3) {  // motion trail
                     px(canvas, b, ball.x - .35f, ball.y + i * .9f,
-                       withAlpha(CrtFace.BALL, ((0.3f - i * 0.08f) * 255).toInt()), .7f, .5f)
+                       withAlpha(ballColor, ((0.3f - i * 0.08f) * 255).toInt()), .7f, .5f)
                 }
             }
             ScreenStyle.ORBIT -> {

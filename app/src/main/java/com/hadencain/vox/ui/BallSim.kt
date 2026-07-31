@@ -6,7 +6,7 @@ package com.hadencain.vox.ui
  *  center, y chases (floor - level*height) so the ball rides the voice. Other screens
  *  position their visuals from time in the view; the ball is parked. */
 class BallSim {
-    // Same normalization MouthDriver proved out: ~0.08 RMS on VOICE_RECOGNITION = full send.
+    // ~0.08 RMS on VOICE_RECOGNITION reads as full-volume speech (empirically tuned).
     private val fullOpenRms = 0.08f
 
     var x = 8f; private set
@@ -19,6 +19,10 @@ class BallSim {
     fun onLevel(rms: Float) {
         target = (rms / fullOpenRms).coerceIn(0f, 1f)
     }
+
+    /** Called on state change away from RIDE_LEVEL so a new take never inherits the last
+     *  take's lift. */
+    fun reset() { level = 0f; target = 0f }
 
     fun step(dt: Float, screen: ScreenStyle) {
         when (screen) {

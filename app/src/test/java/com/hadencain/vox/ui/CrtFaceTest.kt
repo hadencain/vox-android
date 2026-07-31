@@ -23,6 +23,7 @@ class CrtFaceTest {
         assertEquals(LampStyle.RED_BLINK, CrtExpressions.forState(BubbleState.RECORDING_RAW).lamp)
         assertEquals(LampStyle.RED_SOLID, CrtExpressions.forState(BubbleState.ERROR).lamp)
         assertEquals(ScreenStyle.FLATLINE, CrtExpressions.forState(BubbleState.ERROR).screen)
+        assertEquals(LampStyle.AMBER_BLINK, CrtExpressions.forState(BubbleState.PROCESSING).lamp)
     }
 
     @Test fun `waking dims with amber blink and sweep, disabled is dim standby`() {
@@ -41,5 +42,13 @@ class CrtFaceTest {
         assertEquals(ScreenStyle.DRIFT, e.screen)
         assertEquals(LampStyle.OFF, e.lamp)
         assertEquals(1f, e.dim)
+    }
+
+    @Test fun `static states stop the frame loop, animated ones keep it running`() {
+        for (s in listOf(BubbleState.DISABLED, BubbleState.ERROR))
+            assertFalse("$s must not animate", CrtExpressions.forState(s).animates)
+        for (s in listOf(BubbleState.IDLE, BubbleState.WAKING, BubbleState.RECORDING,
+                         BubbleState.RECORDING_RAW, BubbleState.PROCESSING))
+            assertTrue("$s must animate", CrtExpressions.forState(s).animates)
     }
 }

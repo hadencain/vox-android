@@ -33,6 +33,16 @@ class BallSimTest {
         assertEquals(1f, b.level, 0.05f)
     }
 
+    @Test fun `reset clears level and target so a new take starts at the floor`() {
+        val b = BallSim()
+        b.onLevel(0.08f)  // fullOpenRms -> level 1.0
+        repeat(60) { b.step(0.033f, ScreenStyle.RIDE_LEVEL) }
+        b.reset()
+        assertEquals(0f, b.level, 0f)
+        repeat(60) { b.step(0.033f, ScreenStyle.RIDE_LEVEL) }  // no new onLevel
+        assertTrue("expected at/near floor, y=${b.y}", b.y > CrtFace.FLOOR - 0.5f)
+    }
+
     @Test fun `orbit sweep flatline and blank do not move the ball`() {
         val b = BallSim()
         repeat(10) { b.step(0.033f, ScreenStyle.DRIFT) }  // move off spawn
