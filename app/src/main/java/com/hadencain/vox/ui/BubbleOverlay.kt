@@ -30,7 +30,7 @@ class BubbleOverlay(
 
     @Volatile var currentState: BubbleState = BubbleState.IDLE; private set
 
-    private val bubble = GhostView(context)
+    private val bubble = CrtView(context)
     private val caption = TextView(context).apply {
         setBackgroundColor(Color.argb(200, 20, 20, 20))
         setTextColor(Color.WHITE)
@@ -103,7 +103,7 @@ class BubbleOverlay(
 
     fun setState(state: BubbleState) {
         currentState = state
-        handler.post { bubble.setGhostState(state) }
+        handler.post { bubble.setCrtState(state) }
     }
 
     fun setCaption(text: String?) = handler.post {
@@ -115,7 +115,7 @@ class BubbleOverlay(
         caption.visibility = View.VISIBLE
     }
 
-    /** Mic level passthrough -- called from the audio capture thread; GhostView handles
+    /** Mic level passthrough -- called from the audio capture thread; CrtView handles
      *  cross-thread safety internally. */
     fun setAudioLevel(rms: Float) = bubble.setAudioLevel(rms)
 
